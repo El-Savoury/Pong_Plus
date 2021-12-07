@@ -11,7 +11,7 @@ namespace pong
         private SpriteBatch spriteBatch;
         private RenderTarget2D renderSurface; //initialise render surface to draw game to
         private Rectangle renderRectangle; //area within window where the game is rendered to 
-
+        private Texture2D pixel;
 
         //ball variables
         private Texture2D ballTexture; //used to draw ball
@@ -19,10 +19,14 @@ namespace pong
         private Point ballSpeed; //holds x and y int values to define ball velocity 
         private readonly Random rand; //inits random object to allow random ball direction
 
+        private Vector2 ballLeft, ballRight;
+
         //paddle variables
         private Texture2D paddleTexture; //used to draw paddle
         private Rectangle[] paddle; //creates array to hold info for both paddles
         private bool lastHit = true; //which side hit/scored last (left = true right = false)
+
+        private Vector2 paddleLeft, paddleRight;
 
         public enum GameState { Idle, Start, Play, CheckEnd } //intialise enumeration type to define states 
         private GameState gameState; //variable to store current state
@@ -32,8 +36,8 @@ namespace pong
         private void ResetBall()
         {
             ball = new Rectangle(renderSurface.Width / 2 - 4, renderSurface.Height / 2 - 4, 8, 8); //set ball size and positions balls origin in center of screen 
-            ballSpeed = new Point(lastHit ? rand.Next(2, 7) : -rand.Next(2, 7), //set balls x value based off lastHit bool and random number
-                                   rand.Next() > int.MaxValue / 2 ? rand.Next(2, 7) : -rand.Next(2, 7)); //set balls y value by 50/50 chance and random number  
+            ballSpeed = new Point(lastHit ? rand.Next(2, 5) : -rand.Next(2, 5), //set balls x value based off lastHit bool and random number
+                                   rand.Next() > int.MaxValue / 2 ? rand.Next(2, 5) : -rand.Next(2, 5)); //set balls y value by 50/50 chance and random number  
         }
 
         //move ball method
@@ -195,6 +199,10 @@ namespace pong
         {
             spriteBatch = new SpriteBatch(GraphicsDevice);
 
+            //create 1x1 pixel texture
+            pixel = new Texture2D(GraphicsDevice, 1, 1);
+            pixel.SetData<Color>(new Color[] { Color.White }); //fill array with white pixels
+
             ballTexture = Content.Load<Texture2D>("pongball"); //loads sprite from content folder
             paddleTexture = Content.Load<Texture2D>("pongpaddle");
         }
@@ -217,16 +225,28 @@ namespace pong
                     ResetBall();
                     paddle = new Rectangle[] { new Rectangle(32, renderSurface.Height/2 -16, 8, 32),
                                                new Rectangle(renderSurface.Width - 40, renderSurface.Height/2 -16, 8, 32) };
+
+                    //init collision vectors
+                    paddleLeft = new Vector2(); //left side of right paddle
+                    paddleRight = new Vector2();//right side of left paddle
+
                     gameState = GameState.Play;
                     break;
 
                 case GameState.Play:
                     int scored = MoveBall(bounceOffSides: false); //store returned value to check who scored 
-
+                    
                     //add both paddles and check for collisions
                     PaddleAi(0);
                     PaddleAi(1);
                     BallCollisionLine();
+
+                    //update collision lines
+                    paddleLeft.X = paddle[1].X;
+                    paddleLeft.Y = paddle[1].Y;
+
+                    paddleRight.X = paddle[0].X + paddle[0].Width;
+                    paddleRight.Y = paddle[0].Y; 
 
                     if (scored == 1) //left side scored
                     {
@@ -266,7 +286,7 @@ namespace pong
             switch (gameState)
             {
                 case GameState.Idle:
-                    spriteBatch.Draw(ballTexture, ball, Color.White); //draw ball using white pixel texture
+                    spriteBatch.Draw(ballTexture, ball, Color.White); //draw ball in idle state
                     break;
 
                 case GameState.Start:
@@ -277,6 +297,8 @@ namespace pong
                     spriteBatch.Draw(ballTexture, ball, Color.White); //draw ball
                     spriteBatch.Draw(paddleTexture, paddle[0], Color.White); //draw left paddle
                     spriteBatch.Draw(paddleTexture, paddle[1], Color.White); //draw right paddle
+                    spriteBatch.Draw(pixel, paddleLeft, Color.Red); //draw collision vector on right paddle left edge
+                    spriteBatch.Draw(pixel, paddleRight, Color.Red); //draw collision vector on left paddle right edge
                     break;
             }
             spriteBatch.End();
