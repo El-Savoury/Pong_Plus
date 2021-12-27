@@ -1,3 +1,0 @@
-Source File,Dest File,Processor Type,Content Type,Source File Size,Dest File Size,Build Seconds
-"C:/Users/Ross/Documents/C#/visual studio/pong/pong/Content/pongball.png","C:/Users/Ross/Documents/C#/visual studio/pong/pong/Content/bin/DesktopGL/pongball.xnb","TextureProcessor","Texture2DContent",131,485,0.2066477
-"C:/Users/Ross/Documents/C#/visual studio/pong/pong/Content/pongpaddle.png","C:/Users/Ross/Documents/C#/visual studio/pong/pong/Content/bin/DesktopGL/pongpaddle.xnb","TextureProcessor","Texture2DContent",135,1109,0.1767427
