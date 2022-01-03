@@ -45,8 +45,8 @@ namespace pong_plus
             // Draw unequal rectangles
             for (int k = 0; k < 2; k++)
             {
-                height = k < 1 ? 16 : 24;
-                spritebatch.Draw(texture, new Rectangle(border.Right, border.Y + (k * height + space), width, height), colour);
+                height = k < 1 ? 24 : 16;
+                spritebatch.Draw(texture, new Rectangle(border.Right, (border.Y + 8) + k * (height + 16) , width, height), colour);
 
                 height = k > 0 ? 24 : 16;
                 spritebatch.Draw(texture, new Rectangle(border.X - 8, (border.Bottom - 64) + (k * height + space), width, height), colour);
