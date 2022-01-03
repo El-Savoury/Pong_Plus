@@ -21,8 +21,8 @@ namespace pong_plus
         public pongball(Random rand, bool direction)
         {
             BallBounds = new Rectangle(800 / 2 - 4, 600 / 2 - 4, 8, 8);
-            Velocity = new Point(direction ? rand.Next(3, 5) : -rand.Next(3, 5),              // Sets balls x velocity based on which side scored last
-                       rand.Next() > int.MaxValue / 2 ? rand.Next(3, 5) : -rand.Next(3, 5));  // Sets y velocity by 50:50 chance 
+            Velocity = new Point(direction ? rand.Next(3, 6) : -rand.Next(3, 6),              // Sets balls x velocity based on which side scored last
+                       rand.Next() > int.MaxValue / 2 ? rand.Next(3, 6) : -rand.Next(3, 6));  // Sets y velocity by 50:50 chance 
         }
 
         // Reposition ball
@@ -60,8 +60,12 @@ namespace pong_plus
         }
 
         // Move ball / ball collisions
-        public int MoveBall(bool bounce)
+        public (int, bool) MoveBall(bool bounce)
         {
+
+            int scored = 0;
+            bool bounced = false; // Returned when ball bounces for scoring and sound
+
             Rectangle border = gamescreen.border;
             Point ballPos = BallBounds.Location;
 
@@ -71,6 +75,7 @@ namespace pong_plus
             // Collision top
             if (ballPos.Y < border.Y)
             {
+                bounced = true;
                 ballPos.Y = border.Y + Math.Sign(ballPos.Y); // Ball position
                 ReverseVelocity(y: true);
             }
@@ -78,6 +83,7 @@ namespace pong_plus
             // Collision bottom
             if (ballPos.Y + BallBounds.Height > border.Bottom)
             {
+                bounced = true;
                 ballPos.Y = (border.Bottom - BallBounds.Height) - (ballPos.Y + BallBounds.Height - border.Bottom);
                 ReverseVelocity(y: true);
             }
@@ -87,10 +93,11 @@ namespace pong_plus
             {
                 if (bounce) // Idle state
                 {
+                    bounced = true;
                     ballPos.X = border.X;
                     ReverseVelocity(x: true);
                 }
-                else return -1; // Score point for right
+                else scored = -1; // Score point for right
             }
 
             // Collison right
@@ -98,14 +105,15 @@ namespace pong_plus
             {
                 if (bounce) // Idle state
                 {
+                    bounced = true;
                     ballPos.X = border.Right - BallBounds.Width;
                     ReverseVelocity(x: true);
                 }
-                else return 1; // Score point for left
+                else scored = 1; // Score point for left
             }
 
             RepositionBall(ballPos);
-            return 0;
+            return (scored, bounced); // Return which side scored or if the ball bounced
         }
 
     }
