@@ -12,40 +12,36 @@ namespace pong_plus
         private SpriteBatch spriteBatch;
 
         // Render surface vars
-        private RenderTarget2D renderSurface;    // Initialise render surface to draw game to
-        private Rectangle renderRectangle;       // Area within window where the game is rendered to 
+        private RenderTarget2D renderSurface; // Initialise render surface to draw game to
+        private Rectangle renderRectangle; // Area within window where the game is rendered to 
         private Texture2D pixel;
         private gamescreen gameScreen;
 
+        // Keyboard vars
+        KeyboardState kbd, prevKbd;
+
         // Define game states
-        public enum GameState { Idle, Start, Play, CheckEnd };
+        public enum GameState { Idle, Mode, Start, Play, CheckEnd };
         private GameState gameState; // Var to store current state
+        private bool mode; // Var to choose 1P or 2P mode
 
         // Ball vars
-        private pongball ball;          // Defines position, size and bounding box of ball
-        private readonly Random rand;   // Inits random object to allow random ball direction
+        private pongball ball; // Defines position, size and bounding box of ball
+        private readonly Random rand; // Inits random object to allow random ball direction
 
         // Paddle vars
         private paddle[] paddles;
-        private bool lastHit = true;    // Which side hit/scored last (left = true right = false)
+        private bool lastHit = true; // Which side hit/scored last (left = true right = false)
 
         // Scoring vars
         private int[] score;
         private SpriteFont font;
 
         // RGB colours
-        private Color colour;
-        private Color white;
-        private Color blue;
-        private Color red;
-        private Color green;
-        private Color yellow;
+        private Color startColour, leftColour, rightColour, white, blue, red, green, yellow;
 
         // Sounds
-        private SoundEffect bounceSound;
-        private SoundEffect hitSound;
-        private SoundEffect scoreSound;
-        private SoundEffect startSound;
+        private SoundEffect bounceSound, hitSound, scoreSound, startSound;
 
         // Scale render surface to allow window resizing
         private void OnWindowResize(object sender, EventArgs e)
@@ -76,7 +72,7 @@ namespace pong_plus
 
             rand = new Random(); // Init random number generator object
 
-            paddles = new paddle[2];  // Init array of 2 paddles
+            paddles = new paddle[2]; // Init array of 2 paddles
         }
 
         protected override void Initialize() // TODO: Add your initialization logic here
@@ -126,13 +122,17 @@ namespace pong_plus
             red = new Color(173, 43, 34);
             green = new Color(39, 150, 43);
             yellow = new Color(219, 219, 26);
-            colour = green;
+            startColour = green;
+            leftColour = yellow;
+            rightColour = blue;
         }
 
         protected override void Update(GameTime gameTime) // TODO: Add your update logic here
         {
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-                Exit();
+            kbd = Keyboard.GetState();
+
+            // Close window
+            if (kbd.IsKeyDown(Keys.Escape)) { Exit(); }
 
             switch (gameState)
             {
@@ -142,10 +142,42 @@ namespace pong_plus
                     if (idleBounced)
                     {
                         bounceSound.Play(0.4f, 0, 0);
-                        colour = colour == green ? yellow : green; // Change text colour on ball bounce
+                        startColour = startColour == green ? yellow : green; // Change text colour on ball bounce
                     }
 
-                    if (Keyboard.GetState().IsKeyDown(Keys.Space))
+                    if (kbd.IsKeyDown(Keys.Space))
+                    {
+                        hitSound.Play(0.5f, 0, 0);
+                        gameState = GameState.Mode;
+                    }
+
+                    mode = true;
+                    leftColour = yellow;
+                    break;
+
+                case GameState.Mode:
+
+                    (_, bool modeBounced) = ball.MoveBall(bounce: true);
+
+                    if (modeBounced) { bounceSound.Play(0.4f, 0, 0); }
+
+                    // Select game mode (true = 1P, false = 2P)
+                    if (kbd.IsKeyDown(Keys.Left))
+                    {
+                        leftColour = yellow;
+                        rightColour = blue;
+                        mode = true;
+                    }
+
+                    if (kbd.IsKeyDown(Keys.Right))
+                    {
+                        leftColour = blue;
+                        rightColour = green;
+                        mode = false;
+                    }
+
+                    // Start game
+                    if (kbd.IsKeyDown(Keys.Space) && prevKbd.IsKeyUp(Keys.Space))
                     {
                         startSound.Play(0.5f, 0, 0);
                         gameState = GameState.Start;
@@ -167,9 +199,18 @@ namespace pong_plus
 
                     if (bounced) { bounceSound.Play(0.4f, 0, 0); }
 
-                    // ai controlled paddles
-                    paddles[0].PaddleAi(ball);
-                    paddles[1].PaddleAi(ball);
+                    // 1P mode
+                    if (mode)
+                    {
+                        paddles[0].playerMove(true, mode);
+                        paddles[1].PaddleAi(ball);
+                    }
+                    // 2P mode
+                    else
+                    {
+                        paddles[0].playerMove(true, mode);
+                        paddles[1].playerMove(false, mode);
+                    }
 
                     // Collision checks
                     bool hit = paddles[0].CollisionCheck(ball);
@@ -185,7 +226,7 @@ namespace pong_plus
 
                     if (scored == 1) // Left side scored
                     {
-                        scoreSound.Play(0.5f, 0, 0);
+                        scoreSound.Play(0.25f, 0, 0);
                         lastHit = true;
                         score[0]++;
                         gameState = GameState.CheckEnd;
@@ -193,7 +234,7 @@ namespace pong_plus
 
                     if (scored == -1) // Right side scored
                     {
-                        scoreSound.Play(0.5f, 0, 0);
+                        scoreSound.Play(0.25f, 0, 0);
                         lastHit = false;
                         score[1]++;
                         gameState = GameState.CheckEnd;
@@ -202,9 +243,13 @@ namespace pong_plus
 
                 case GameState.CheckEnd:
 
-                    ball = new pongball(rand, lastHit); // Create new ball object at start of each point.
+                    leftColour = blue;
+                    rightColour = blue;
 
-                    gameState = GameState.Play;
+                    if (score[0] > 10 || score[1] > 10) gameState = GameState.Idle;
+                    else gameState = GameState.Play;
+
+                    ball = new pongball(rand, lastHit); // Create new ball object at start of each point.
                     break;
 
                 default:
@@ -212,6 +257,7 @@ namespace pong_plus
                     break;
             }
 
+            prevKbd = kbd;
             base.Update(gameTime);
         }
 
@@ -228,19 +274,21 @@ namespace pong_plus
             {
                 case GameState.Idle:
 
-                    spriteBatch.DrawString(font, "PRESS  SPACE", new Vector2(190, gamescreen.border.Y), colour);
+                    spriteBatch.DrawString(font, "PONG    PLUS", new Vector2(190, gamescreen.border.Y), startColour);
                     spriteBatch.Draw(pixel, ball.BallBounds, white);
+                    break;
 
+                case GameState.Mode:
+
+                    spriteBatch.DrawString(font, "1P", new Vector2(200, gamescreen.border.Y + 8), leftColour);
+                    spriteBatch.DrawString(font, "2P", new Vector2(gamescreen.border.Right - 200, gamescreen.border.Y + 8), rightColour);
+                    spriteBatch.Draw(pixel, ball.BallBounds, white);
                     break;
 
                 case GameState.Start:
                     break;
 
                 case GameState.Play:
-
-                case GameState.CheckEnd:
-
-                    // Draw score font
                     spriteBatch.DrawString(font, score[0].ToString("D2"), new Vector2(200, gamescreen.border.Y + 8), blue);
                     spriteBatch.DrawString(font, score[1].ToString("D2"), new Vector2(gamescreen.border.Right - 200, gamescreen.border.Y + 8), blue);
 
@@ -248,7 +296,18 @@ namespace pong_plus
                     spriteBatch.Draw(pixel, ball.BallBounds, white);
                     spriteBatch.Draw(pixel, paddles[0].padBounds, green);
                     spriteBatch.Draw(pixel, paddles[1].padBounds, yellow);
+                    break;
 
+                case GameState.CheckEnd:
+
+                    // Draw score font
+                    //spriteBatch.DrawString(font, score[0].ToString("D2"), new Vector2(200, gamescreen.border.Y + 8), leftColour);
+                    //spriteBatch.DrawString(font, score[1].ToString("D2"), new Vector2(gamescreen.border.Right - 200, gamescreen.border.Y + 8), rightColour);
+
+                    // Draw ball and paddles
+                    spriteBatch.Draw(pixel, ball.BallBounds, white);
+                    spriteBatch.Draw(pixel, paddles[0].padBounds, green);
+                    spriteBatch.Draw(pixel, paddles[1].padBounds, yellow);
                     break;
             }
             spriteBatch.End();

@@ -31,6 +31,12 @@
 /processorParam:Quality=Best
 /build:echo.wav
 
+#begin hit.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:hit.wav
+
 #begin padbump.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
