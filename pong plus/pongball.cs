@@ -20,7 +20,7 @@ namespace pong_plus
         // Constructor
         public pongball(Random rand, bool direction)
         {
-            BallBounds = new Rectangle(800 / 2 - 4, 600 / 2 - 4, 8, 8);
+            BallBounds = new Rectangle(800 / 2, 600 / 2, 8, 8);
             Velocity = new Point(direction ? rand.Next(2, 5) : -rand.Next(2, 5),              // Sets balls x velocity based on which side scored last
                        rand.Next() > int.MaxValue / 2 ? rand.Next(2, 5) : -rand.Next(2, 5));  // Sets y velocity by 50:50 chance 
         }
