@@ -3,26 +3,44 @@ using Microsoft.Xna.Framework;
 
 namespace pong_plus
 {
-    public class pongball
+    public class PongBall
     {
+        public int size;
+        public int minSpd;
+        public int maxSpd;
+
         // Bounding box
-        public Rectangle BallBounds
-        {
-            get; private set;
-        }
+        public Rectangle BallBounds { get; private set; }
 
         // Ball velocity
-        public Point Velocity
+        public Point Velocity { get; private set; }
+
+        // Ball Constructor
+        public PongBall(Random rand, bool direction)
         {
-            get; private set;
+            size = 8;
+            minSpd = 2;
+            maxSpd = 5;
+
+            InitBall(rand, direction);
         }
 
-        // Constructor
-        public pongball(Random rand, bool direction)
+        // Powerup constructor
+        public PongBall(Random rand, bool direction, int s, int minspeed, int maxspeed)
         {
-            BallBounds = new Rectangle(800 / 2, 600 / 2, 8, 8);
-            Velocity = new Point(direction ? rand.Next(2, 5) : -rand.Next(2, 5),              // Sets balls x velocity based on which side scored last
-                       rand.Next() > int.MaxValue / 2 ? rand.Next(2, 5) : -rand.Next(2, 5));  // Sets y velocity by 50:50 chance 
+            size = s;
+            minSpd = minspeed;
+            maxSpd = maxspeed;
+
+            InitBall(rand, direction);
+        }
+
+        // Init ball
+        private void InitBall(Random rand, bool direction)
+        {
+            BallBounds = new Rectangle(800 / 2, 600 / 2, size, size);
+            Velocity = new Point(direction ? rand.Next(minSpd, maxSpd) : -rand.Next(minSpd, maxSpd),              // Sets balls x velocity based on which side scored last
+                       rand.Next() > int.MaxValue / 2 ? rand.Next(minSpd, maxSpd) : -rand.Next(minSpd, maxSpd));  // Sets y velocity by 50:50 chance 
         }
 
         // Reposition ball
@@ -66,7 +84,7 @@ namespace pong_plus
             int scored = 0;
             bool bounced = false; // Returned when ball bounces for scoring and sound
 
-            Rectangle border = gamescreen.border;
+            Rectangle border = GameScreen.border;
             Point ballPos = BallBounds.Location;
 
             ballPos.X += Velocity.X;

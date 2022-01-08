@@ -13,47 +13,59 @@
 
 #---------------------------------- Content ---------------------------------#
 
-#begin bounce.wav
+#begin PongSounds/bounce.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
 /processorParam:Quality=Best
-/build:bounce.wav
+/build:PongSounds/bounce.wav
 
-#begin bump.wav
+#begin PongSounds/bump.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
 /processorParam:Quality=Best
-/build:bump.wav
+/build:PongSounds/bump.wav
 
-#begin echo.wav
+#begin PongSounds/bump2.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
 /processorParam:Quality=Best
-/build:echo.wav
+/build:PongSounds/bump2.wav
 
-#begin hit.wav
+#begin PongSounds/echo.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
 /processorParam:Quality=Best
-/build:hit.wav
+/build:PongSounds/echo.wav
 
-#begin padbump.wav
+#begin PongSounds/hit.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
 /processorParam:Quality=Best
-/build:padbump.wav
+/build:PongSounds/hit.wav
 
-#begin Powerup4.wav
+#begin PongSounds/laser.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
 /processorParam:Quality=Best
-/build:Powerup4.wav
+/build:PongSounds/laser.wav
 
-#begin poweruphi.wav
+#begin PongSounds/padbump.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
 /processorParam:Quality=Best
-/build:poweruphi.wav
+/build:PongSounds/padbump.wav
+
+#begin PongSounds/Powerup4.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:PongSounds/Powerup4.wav
+
+#begin PongSounds/poweruphi.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:PongSounds/poweruphi.wav
 
 #begin start.spritefont
 /importer:FontDescriptionImporter

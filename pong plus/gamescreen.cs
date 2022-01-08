@@ -4,13 +4,13 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace pong_plus
 {
-    public class gamescreen
+    public class GameScreen
     {
         // Game screen size
         public static Rectangle border = new Rectangle(80, 60, 640, 480);
 
         // Constructor
-        public gamescreen()
+        public GameScreen()
         {
 
         }
