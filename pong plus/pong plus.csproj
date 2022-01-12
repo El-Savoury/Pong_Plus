@@ -15,11 +15,15 @@
     <None Remove="Content\bump2" />
     <None Remove="Content\echo.wav" />
     <None Remove="Content\hit.wav" />
+    <None Remove="Content\laser.png" />
+    <None Remove="Content\multi laser.png" />
     <None Remove="Content\padbump.wav" />
     <None Remove="Content\pongfont.spritefont" />
     <None Remove="Content\PongSounds\softbounce.wav" />
     <None Remove="Content\Powerup4.wav" />
     <None Remove="Content\poweruphi.wav" />
+    <None Remove="Content\side arrows.png" />
+    <None Remove="Content\vert arrows.png" />
     <None Remove="Icon.ico" />
     <None Remove="Icon.bmp" />
   </ItemGroup>

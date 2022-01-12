@@ -80,7 +80,6 @@ namespace pong_plus
         // Move ball / ball collisions
         public (int, bool) MoveBall(bool bounce)
         {
-
             int scored = 0;
             bool bounced = false; // Returned when ball bounces for scoring and sound
 
@@ -133,6 +132,5 @@ namespace pong_plus
             RepositionBall(ballPos);
             return (scored, bounced); // Return which side scored or if the ball bounced
         }
-
     }
 }
