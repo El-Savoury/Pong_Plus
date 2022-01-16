@@ -19,6 +19,7 @@
     <None Remove="Content\multi laser.png" />
     <None Remove="Content\padbump.wav" />
     <None Remove="Content\pongfont.spritefont" />
+    <None Remove="Content\PongSounds\pop.wav" />
     <None Remove="Content\PongSounds\softbounce.wav" />
     <None Remove="Content\Powerup4.wav" />
     <None Remove="Content\poweruphi.wav" />

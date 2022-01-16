@@ -39,12 +39,14 @@ namespace pong_plus
         private bool lastHit = true; // Which side hit/scored last (left = true, right = false)
 
         // Powerup vars
+        private Texture2D[] powerUpTextures;
         private Texture2D laser, vertArrows, sideArrows, multiLaser;
         private PongBall powerUp;
+        private bool pickup;
         private bool powerUpExists = false;
         private bool losingSide = false; // Which side is currently losing (left = true, right = false)
         private float countDown; // Countdown until powerup spawns
-        private bool drawPowerUp = false;
+        private bool powerUpGet = false;
 
         // Scoring vars
         private const int winScore = 5; // Score needed to win
@@ -55,10 +57,10 @@ namespace pong_plus
         private SpriteFont font;
 
         // Colours
-        private Color startColour, leftColour, rightColour, white, blue, red, darkRed, green, yellow;
+        public static Color startColour, leftColour, rightColour, white, blue, red, darkRed, green, yellow;
 
         // Sounds
-        private SoundEffect bounceSound, hitSound, scoreSound, selectSound, startSound;
+        private SoundEffect bounceSound, hitSound, scoreSound, selectSound, startSound, popSound, powerBounceSound;
         #endregion
 
         #region Methods
@@ -105,14 +107,9 @@ namespace pong_plus
             {
                 powerUp = new PongBall(rand, losingSide, 16, 1, 3);
                 powerUpExists = true;
+                popSound.Play(0.1f, 0, 0);
                 currentTime = 0f;
             }
-        }
-
-        //TODO: DRAW CORRECT POWERUPS
-        private void DrawPowerUp()
-        {
-            drawPowerUp = true;
         }
         #endregion
 
@@ -174,6 +171,8 @@ namespace pong_plus
             laser = Content.Load<Texture2D>("PongSprites/laser");
             multiLaser = Content.Load<Texture2D>("PongSprites/multi laser");
 
+            powerUpTextures = new Texture2D[] { vertArrows, sideArrows, laser, multiLaser };
+
             // Load font
             font = Content.Load<SpriteFont>("start");
 
@@ -183,6 +182,8 @@ namespace pong_plus
             scoreSound = Content.Load<SoundEffect>("PongSounds/padbump");
             selectSound = Content.Load<SoundEffect>("PongSounds/echo");
             startSound = Content.Load<SoundEffect>("PongSounds/bump");
+            popSound = Content.Load<SoundEffect>("PongSounds/Powerup4");
+            powerBounceSound = Content.Load<SoundEffect>("PongSounds/powerbounce");
 
             // Define custom RGB colours
             white = new Color(199, 198, 198);
@@ -279,29 +280,30 @@ namespace pong_plus
                     MovePaddles();
 
                     //TODO: SORT OUT POWERUPS
-                    PowerUp.SidewaysPaddle(paddle[0], ball);
-                    PowerUp.ControlBall(ball);
+                    //PowerUp.SidewaysPaddle(paddle[0], ball);
+                    //PowerUp.ControlBall(ball, paddle[0], true);
 
                     // Spawn and move powerup
                     if (powerUpExists)
                     {
-                        powerUp.MoveBall(true);
-
-                        // Despawn powerup on collison with paddle
-                        if (paddle[0].CollisionCheck(powerUp) || paddle[1].CollisionCheck(powerUp))
+                        (_, bool powerUpBounce) = powerUp.MoveBall(true);
+                        if (powerUpBounce) { powerBounceSound.Play(0.4f, 0, 0); } 
+                        
+                        // Return which side pickup collided, which side to draw and despawn pickup
+                        if (paddle[0].Collision(powerUp, powerUp.BallBounds.X, powerUp.BallBounds.Y) ||
+                            PowerUp.PowerUpCollision(powerUp, ball, ball.BallBounds.X, ball.BallBounds.Y))
                         {
-
-
-                            //TODO: DRAW CORRECT POWERUPS
-                            DrawPowerUp();
-
-
-
-                            powerUpExists = false;
-                            powerUp = null;
+                            pickup = true;
+                            (powerUpGet, powerUpExists) = PowerUp.PickupPowerUp(powerUp);
+                        }
+                        else if (paddle[1].Collision(powerUp, powerUp.BallBounds.X, powerUp.BallBounds.Y) ||
+                                PowerUp.PowerUpCollision(powerUp, ball, ball.BallBounds.X, ball.BallBounds.Y))
+                        {
+                            pickup = false;
+                            (powerUpGet, powerUpExists) = PowerUp.PickupPowerUp(powerUp);
                         }
                     }
-                    else if (!powerUpExists)
+                    else if (!powerUpExists && !powerUpGet)
                     {
                         // Get losing side
                         if (score[0] > score[1]) { losingSide = true; }
@@ -349,7 +351,7 @@ namespace pong_plus
 
 
                     // TODO: DRAW CORRECT POWERUPS
-                    drawPowerUp = false;
+                    powerUpGet = false;
 
 
 
@@ -427,12 +429,12 @@ namespace pong_plus
 
                     // Draw powerup
                     if (powerUpExists) { spriteBatch.Draw(pixel, powerUp.BallBounds, darkRed); }
-                    if (drawPowerUp) { spriteBatch.Draw(vertArrows, new Vector2(290, GameScreen.border.Y + 27), Color.White); }
+                    if (powerUpGet) { spriteBatch.Draw(powerUpTextures[2], new Vector2(pickup ? 290 : 455, GameScreen.border.Y + 27), Color.White); }
 
                     // Draw ball and paddles
-                    spriteBatch.Draw(pixel, ball.BallBounds, white);
-                    spriteBatch.Draw(pixel, paddle[0].padBounds, green);
-                    spriteBatch.Draw(pixel, paddle[1].padBounds, yellow);
+                    spriteBatch.Draw(pixel, ball.BallBounds, ball.ballColour);
+                    spriteBatch.Draw(pixel, paddle[0].padBounds, paddle[0].padColour);
+                    spriteBatch.Draw(pixel, paddle[1].padBounds, paddle[1].padColour);
                     break;
 
                 case GameState.ShowScore:

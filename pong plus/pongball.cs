@@ -9,11 +9,14 @@ namespace pong_plus
         public int minSpd;
         public int maxSpd;
 
+        // Ball Colour
+        public Color ballColour { get; set; }
+
         // Bounding box
         public Rectangle BallBounds { get; private set; }
 
         // Ball velocity
-        public Point Velocity { get; private set; }
+        public Point Velocity { get; set; }
 
         // Ball Constructor
         public PongBall(Random rand, bool direction)
@@ -21,6 +24,7 @@ namespace pong_plus
             size = 8;
             minSpd = 2;
             maxSpd = 5;
+            ballColour = Game1.white;
 
             InitBall(rand, direction);
         }

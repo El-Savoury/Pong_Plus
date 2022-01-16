@@ -55,6 +55,12 @@
 /processorParam:Quality=Best
 /build:PongSounds/padbump.wav
 
+#begin PongSounds/powerbounce.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:PongSounds/powerbounce.wav
+
 #begin PongSounds/Powerup4.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
