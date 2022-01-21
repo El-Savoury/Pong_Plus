@@ -10,10 +10,10 @@ namespace pong_plus
         public int maxSpd;
 
         // Ball Colour
-        public Color ballColour { get; set; }
+        public Color BallColour { get; set; }
 
         // Bounding box
-        public Rectangle BallBounds { get; private set; }
+        public Rectangle BallBounds { get; set; }
 
         // Ball velocity
         public Point Velocity { get; set; }
@@ -24,9 +24,9 @@ namespace pong_plus
             size = 8;
             minSpd = 2;
             maxSpd = 5;
-            ballColour = Game1.white;
+            BallColour = Game1.white;
 
-            InitBall(rand, direction);
+            InitBall(rand, direction, 400, 300);
         }
 
         // Powerup constructor
@@ -36,13 +36,14 @@ namespace pong_plus
             minSpd = minspeed;
             maxSpd = maxspeed;
 
-            InitBall(rand, direction);
+            InitBall(rand, direction, rand.Next(GameScreen.border.X + 200, GameScreen.border.Right - 200),
+                                      rand.Next(GameScreen.border.Y + 100, GameScreen.border.Bottom - 100));
         }
 
         // Init ball
-        private void InitBall(Random rand, bool direction)
+        private void InitBall(Random rand, bool direction, int spawnX, int spawnY)
         {
-            BallBounds = new Rectangle(800 / 2, 600 / 2, size, size);
+            BallBounds = new Rectangle(spawnX, spawnY, size, size);
             Velocity = new Point(direction ? rand.Next(minSpd, maxSpd) : -rand.Next(minSpd, maxSpd),              // Sets balls x velocity based on which side scored last
                        rand.Next() > int.MaxValue / 2 ? rand.Next(minSpd, maxSpd) : -rand.Next(minSpd, maxSpd));  // Sets y velocity by 50:50 chance 
         }

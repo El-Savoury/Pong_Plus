@@ -16,7 +16,7 @@ namespace pong_plus
         }
 
         // Draw pong court borders
-        public void drawBorder(SpriteBatch spritebatch, Texture2D texture, Color colour)
+        public void DrawBorder(SpriteBatch spritebatch, Texture2D texture, Color colour)
         {
             int space = 8;
             int width = 8;
@@ -54,7 +54,7 @@ namespace pong_plus
         }
 
         // Draw dotted centre line
-        public void drawNet(SpriteBatch spritebatch, Texture2D texture, Color colour)
+        public void DrawNet(SpriteBatch spritebatch, Texture2D texture, Color colour)
         {
             int width = 8;
             int height = 36;

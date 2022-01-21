@@ -23,7 +23,7 @@ namespace pong_plus
 
         // Timer vars
         private float countDuration = 2f;
-        private float currentTime = 0f;
+        public float currentTime = 0f;
 
         // Define game states
         public enum GameState { Idle, ModeSelect, Start, Play, ShowScore, CheckEnd };
@@ -37,16 +37,16 @@ namespace pong_plus
         // Paddle vars
         private Paddle[] paddle;
         private bool lastHit = true; // Which side hit/scored last (left = true, right = false)
+        private bool resetPaddle = false;
 
         // Powerup vars
-        private Texture2D[] powerUpTextures;
-        private Texture2D laser, vertArrows, sideArrows, multiLaser;
         private PongBall powerUp;
-        private bool pickup;
-        private bool powerUpExists = false;
-        private bool losingSide = false; // Which side is currently losing (left = true, right = false)
+        private Texture2D[] powerUpTextures;
+        private Texture2D laserpaddle, controlBall, sidewaysPaddle, multiLaser;
+        private int iconIndex;
         private float countDown; // Countdown until powerup spawns
-        private bool powerUpGet = false;
+        private bool pickup; // Which side picked up powerup
+        private bool powerUpExists, losingSide, powerUpGet, pickupActive = false;
 
         // Scoring vars
         private const int winScore = 5; // Score needed to win
@@ -87,14 +87,14 @@ namespace pong_plus
             // 1P mode
             if (mode)
             {
-                paddle[0].playerMove(true, mode);
+                paddle[0].playerMove(true, mode, paddle[0]);
                 paddle[1].PaddleAi(ball);
             }
             // 2P mode
             else
             {
-                paddle[0].playerMove(true, mode);
-                paddle[1].playerMove(false, mode);
+                paddle[0].playerMove(true, mode, paddle[0]);
+                paddle[1].playerMove(false, mode, paddle[1]);
             }
         }
 
@@ -105,12 +105,26 @@ namespace pong_plus
 
             if (currentTime >= countDown)
             {
-                powerUp = new PongBall(rand, losingSide, 16, 1, 3);
+                powerUp = new PongBall(rand, losingSide, 24, 1, 3);
                 powerUpExists = true;
                 popSound.Play(0.1f, 0, 0);
                 currentTime = 0f;
             }
         }
+
+        //// Flash powerup colour
+        //public void FlashColour(GameTime Time, Color col1, Color col2)
+        //{
+        //    Color colour = col1;
+        //    float timer = 0.1f;
+        //    currentTime += (float)Time.ElapsedGameTime.TotalSeconds;
+
+        //    if (currentTime <= timer) { colour = col1; }
+        //    else if (currentTime > timer && currentTime <= timer * 2) { colour = col2; }
+        //    else { currentTime = 0f; }
+
+        //    powerUpColour = colour;
+        //}
         #endregion
 
         #region Constructor
@@ -166,12 +180,12 @@ namespace pong_plus
             pixel.SetData(new Color[] { Color.White });
 
             // Load Sprites
-            vertArrows = Content.Load<Texture2D>("PongSprites/vert arrows");
-            sideArrows = Content.Load<Texture2D>("PongSprites/side arrows");
-            laser = Content.Load<Texture2D>("PongSprites/laser");
+            controlBall = Content.Load<Texture2D>("PongSprites/vert arrows");
+            sidewaysPaddle = Content.Load<Texture2D>("PongSprites/side arrows");
+            laserpaddle = Content.Load<Texture2D>("PongSprites/laser");
             multiLaser = Content.Load<Texture2D>("PongSprites/multi laser");
 
-            powerUpTextures = new Texture2D[] { vertArrows, sideArrows, laser, multiLaser };
+            powerUpTextures = new Texture2D[] { controlBall, sidewaysPaddle, laserpaddle, multiLaser };
 
             // Load font
             font = Content.Load<SpriteFont>("start");
@@ -279,28 +293,20 @@ namespace pong_plus
 
                     MovePaddles();
 
-                    //TODO: SORT OUT POWERUPS
-                    //PowerUp.SidewaysPaddle(paddle[0], ball);
-                    //PowerUp.ControlBall(ball, paddle[0], true);
-
                     // Spawn and move powerup
                     if (powerUpExists)
                     {
                         (_, bool powerUpBounce) = powerUp.MoveBall(true);
-                        if (powerUpBounce) { powerBounceSound.Play(0.4f, 0, 0); } 
-                        
-                        // Return which side pickup collided, which side to draw and despawn pickup
-                        if (paddle[0].Collision(powerUp, powerUp.BallBounds.X, powerUp.BallBounds.Y) ||
-                            PowerUp.PowerUpCollision(powerUp, ball, ball.BallBounds.X, ball.BallBounds.Y))
+                        if (powerUpBounce) { powerBounceSound.Play(0.4f, 0, 0); }
+
+                        // Hit powerup with paddle
+                        (powerUpGet, powerUpExists, pickup) = PowerUp.PickupPowerUp(paddle, powerUp);
+
+                        // Hit powerup with ball
+                        if (PowerUp.PowerUpCollision(powerUp, ball))
                         {
-                            pickup = true;
-                            (powerUpGet, powerUpExists) = PowerUp.PickupPowerUp(powerUp);
-                        }
-                        else if (paddle[1].Collision(powerUp, powerUp.BallBounds.X, powerUp.BallBounds.Y) ||
-                                PowerUp.PowerUpCollision(powerUp, ball, ball.BallBounds.X, ball.BallBounds.Y))
-                        {
-                            pickup = false;
-                            (powerUpGet, powerUpExists) = PowerUp.PickupPowerUp(powerUp);
+                            (powerUpGet, powerUpExists) = PowerUp.DespawnPowerUp(powerUp);
+                            pickup = Math.Sign(ball.Velocity.X) == 1;
                         }
                     }
                     else if (!powerUpExists && !powerUpGet)
@@ -311,6 +317,14 @@ namespace pong_plus
 
                         SpawnPowerUp(gameTime, countDown);
                     }
+
+                    // Use powerup
+                    if (powerUpGet && !pickupActive)
+                    {
+                        iconIndex = rand.Next(0, 2);
+                        pickupActive = true;
+                    }
+                    else if (powerUpGet && pickupActive) { PowerUp.RandomisePowerUp(iconIndex, ball, paddle[pickup ? 0 : 1], pickup); }
 
                     // Ball collision checks
                     bool hit = paddle[0].CollisionCheck(ball);
@@ -328,6 +342,7 @@ namespace pong_plus
                     {
                         scoreSound.Play(0.25f, 0, 0);
                         lastHit = true;
+                        resetPaddle = false;
                         score[0]++;
                         gameState = GameState.ShowScore;
                     }
@@ -336,6 +351,7 @@ namespace pong_plus
                     {
                         scoreSound.Play(0.25f, 0, 0);
                         lastHit = false;
+                        resetPaddle = false;
                         score[1]++;
                         gameState = GameState.ShowScore;
                     }
@@ -343,17 +359,23 @@ namespace pong_plus
 
                 case GameState.ShowScore:
 
+                    // Reset paddles keeping current Y pos
+                    if (powerUpGet && !resetPaddle)
+                    {
+                        int leftPadY = paddle[0].padBounds.Y;
+                        int rightPadY = paddle[1].padBounds.Y;
+
+                        paddle[0] = new Paddle(false) { padBounds = new Rectangle(GameScreen.border.Left + 16, leftPadY, 8, 32) };
+                        paddle[1] = new Paddle(true) { padBounds = new Rectangle(GameScreen.border.Right - 20, rightPadY, 8, 32) };
+                        resetPaddle = true;
+                    }
+
                     // Despawn powerup & reset timer
-                    powerUpExists = false;
                     powerUp = null;
-                    countDown = rand.Next(1, 2);
-
-
-
-                    // TODO: DRAW CORRECT POWERUPS
+                    powerUpExists = false;
                     powerUpGet = false;
-
-
+                    pickupActive = false;
+                    countDown = rand.Next(1, 2);
 
                     MovePaddles();
 
@@ -390,6 +412,7 @@ namespace pong_plus
                     break;
             }
             prevKbd = kbd;
+
             base.Update(gameTime);
         }
         #endregion
@@ -401,19 +424,17 @@ namespace pong_plus
             GraphicsDevice.Clear(Color.Black); // Draw black background
 
             spriteBatch.Begin();
-            gameScreen.drawBorder(spriteBatch, pixel, blue); // Draw sides of court
-            gameScreen.drawNet(spriteBatch, pixel, blue);    // Draw centre line
+            gameScreen.DrawBorder(spriteBatch, pixel, blue); // Draw sides of court
+            gameScreen.DrawNet(spriteBatch, pixel, blue);    // Draw centre line
 
             switch (gameState)
             {
                 case GameState.Idle:
-
                     spriteBatch.DrawString(font, "PONG    PLUS", new Vector2(190, GameScreen.border.Y), startColour);
                     spriteBatch.Draw(pixel, ball.BallBounds, white);
                     break;
 
                 case GameState.ModeSelect:
-
                     spriteBatch.DrawString(font, "1P", new Vector2(200, GameScreen.border.Y + 8), leftColour);
                     spriteBatch.DrawString(font, "2P", new Vector2(GameScreen.border.Right - 200, GameScreen.border.Y + 8), rightColour);
                     spriteBatch.Draw(pixel, ball.BallBounds, white);
@@ -429,16 +450,22 @@ namespace pong_plus
 
                     // Draw powerup
                     if (powerUpExists) { spriteBatch.Draw(pixel, powerUp.BallBounds, darkRed); }
-                    if (powerUpGet) { spriteBatch.Draw(powerUpTextures[2], new Vector2(pickup ? 290 : 455, GameScreen.border.Y + 27), Color.White); }
+                    spriteBatch.DrawString(font, iconIndex.ToString(), new Vector2(100, 100), red);
+
+                    // Draw laser
+                    //spriteBatch.Draw(pixel, new Rectangle(laser.BallBounds.X, laser.BallBounds.Y, 24, 8), red);
+
+                    // Draw powerup icon
+                    if (powerUpGet && pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(290, GameScreen.border.Y + 27), Color.White); }
+                    else if (powerUpGet && !pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(453, GameScreen.border.Y + 27), null, Color.White, 0f, new Vector2(0, 0), new Vector2(1, 1), SpriteEffects.FlipHorizontally, 0f); }
 
                     // Draw ball and paddles
-                    spriteBatch.Draw(pixel, ball.BallBounds, ball.ballColour);
+                    spriteBatch.Draw(pixel, ball.BallBounds, ball.BallColour);
                     spriteBatch.Draw(pixel, paddle[0].padBounds, paddle[0].padColour);
                     spriteBatch.Draw(pixel, paddle[1].padBounds, paddle[1].padColour);
                     break;
 
                 case GameState.ShowScore:
-
                     // Check for left side win
                     if ((score[0] >= winScore && (score[0] - score[1]) > 1) || (score[0] >= winScore && score[1] == 0))
                     {
@@ -462,7 +489,6 @@ namespace pong_plus
                     break;
 
                 case GameState.CheckEnd:
-
                     // Draw score font
                     if (!win)
                     {
