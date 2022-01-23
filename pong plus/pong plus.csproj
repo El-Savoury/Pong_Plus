@@ -10,6 +10,11 @@
     <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Content\PongSprites\**" />
+    <EmbeddedResource Remove="Content\PongSprites\**" />
+    <None Remove="Content\PongSprites\**" />
+  </ItemGroup>
+  <ItemGroup>
     <None Remove="Content\bounce.wav" />
     <None Remove="Content\bump.wav" />
     <None Remove="Content\bump2" />

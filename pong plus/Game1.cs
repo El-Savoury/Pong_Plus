@@ -37,16 +37,19 @@ namespace pong_plus
         // Paddle vars
         private Paddle[] paddle;
         private bool lastHit = true; // Which side hit/scored last (left = true, right = false)
-        private bool resetPaddle = false;
 
         // Powerup vars
         private PongBall powerUp;
-        private Texture2D[] powerUpTextures;
-        private Texture2D laserpaddle, controlBall, sidewaysPaddle, multiLaser;
-        private int iconIndex;
         private float countDown; // Countdown until powerup spawns
+        private float powerTimer = 0f; // Times how long powerup is active
         private bool pickup; // Which side picked up powerup
-        private bool powerUpExists, losingSide, powerUpGet, pickupActive = false;
+        private bool powerUpExists, losingSide, powerUpGet, powerUpReady, powerUpActive, soundPlayed = false;
+
+        // Powerup icon vars
+        private Texture2D[] powerUpTextures;
+        private Texture2D laserpaddle, controlBall, sidewaysPaddle, multiLaser, bigPaddle;
+        private int iconIndex;
+        private float alpha;
 
         // Scoring vars
         private const int winScore = 5; // Score needed to win
@@ -60,7 +63,7 @@ namespace pong_plus
         public static Color startColour, leftColour, rightColour, white, blue, red, darkRed, green, yellow;
 
         // Sounds
-        private SoundEffect bounceSound, hitSound, scoreSound, selectSound, startSound, popSound, powerBounceSound;
+        public static SoundEffect bounceSound, hitSound, scoreSound, selectSound, startSound, deepSound, powerBounceSound, powerPickupSound, powerActivateSound;
         #endregion
 
         #region Methods
@@ -84,18 +87,25 @@ namespace pong_plus
         // Move paddles method
         private void MovePaddles()
         {
-            // 1P mode
-            if (mode)
+            if (mode) // 1P mode
             {
                 paddle[0].playerMove(true, mode, paddle[0]);
                 paddle[1].PaddleAi(ball);
             }
-            // 2P mode
-            else
+            else // 2P mode
             {
                 paddle[0].playerMove(true, mode, paddle[0]);
                 paddle[1].playerMove(false, mode, paddle[1]);
             }
+        }
+
+        private void ResetPaddles()
+        {
+            int leftPadY = paddle[0].PadBounds.Y;
+            int rightPadY = paddle[1].PadBounds.Y;
+
+            paddle[0] = new Paddle(false) { PadBounds = new Rectangle(GameScreen.border.Left + 16, leftPadY, 8, 32) };
+            paddle[1] = new Paddle(true) { PadBounds = new Rectangle(GameScreen.border.Right - 20, rightPadY, 8, 32) };
         }
 
         // Spawn powerup method
@@ -107,24 +117,43 @@ namespace pong_plus
             {
                 powerUp = new PongBall(rand, losingSide, 24, 1, 3);
                 powerUpExists = true;
-                popSound.Play(0.1f, 0, 0);
+                powerActivateSound.Play(0.1f, 0, 0);
                 currentTime = 0f;
             }
         }
 
-        //// Flash powerup colour
-        //public void FlashColour(GameTime Time, Color col1, Color col2)
-        //{
-        //    Color colour = col1;
-        //    float timer = 0.1f;
-        //    currentTime += (float)Time.ElapsedGameTime.TotalSeconds;
+        private void ResetPowerUp()
+        {
+            // Despawn powerup & reset vars
+            powerUp = null;
+            powerUpExists = false;
+            powerUpGet = false;
+            powerUpReady = false;
+            powerUpActive = false;
+            soundPlayed = false;
 
-        //    if (currentTime <= timer) { colour = col1; }
-        //    else if (currentTime > timer && currentTime <= timer * 2) { colour = col2; }
-        //    else { currentTime = 0f; }
+            // Reset timers
+            powerTimer = 0f;
+            countDown = rand.Next(1, 2);
+        }
 
-        //    powerUpColour = colour;
-        //}
+        private void DrawPowerupTrail()
+        {
+
+        }
+
+        // Flash powerup icon
+        public void FlashIcon(GameTime Time, float a)
+        {
+            float timer = 0.8f;
+            currentTime += (float)Time.ElapsedGameTime.TotalSeconds;
+
+            if (currentTime <= timer) { a = 0f; }
+            else if (currentTime > timer && currentTime <= timer * 2) { a = 1f; }
+            else { currentTime = 0f; }
+
+            alpha = a;
+        }
         #endregion
 
         #region Constructor
@@ -182,10 +211,11 @@ namespace pong_plus
             // Load Sprites
             controlBall = Content.Load<Texture2D>("PongSprites/vert arrows");
             sidewaysPaddle = Content.Load<Texture2D>("PongSprites/side arrows");
+            bigPaddle = Content.Load<Texture2D>("PongSprites/big paddle");
             laserpaddle = Content.Load<Texture2D>("PongSprites/laser");
             multiLaser = Content.Load<Texture2D>("PongSprites/multi laser");
 
-            powerUpTextures = new Texture2D[] { controlBall, sidewaysPaddle, laserpaddle, multiLaser };
+            powerUpTextures = new Texture2D[] { controlBall, sidewaysPaddle, bigPaddle, laserpaddle, multiLaser };
 
             // Load font
             font = Content.Load<SpriteFont>("start");
@@ -196,8 +226,10 @@ namespace pong_plus
             scoreSound = Content.Load<SoundEffect>("PongSounds/padbump");
             selectSound = Content.Load<SoundEffect>("PongSounds/echo");
             startSound = Content.Load<SoundEffect>("PongSounds/bump");
-            popSound = Content.Load<SoundEffect>("PongSounds/Powerup4");
-            powerBounceSound = Content.Load<SoundEffect>("PongSounds/powerbounce");
+            deepSound = Content.Load<SoundEffect>("PongSounds/DeepSound");
+            powerBounceSound = Content.Load<SoundEffect>("PongSounds/powerBounce");
+            powerPickupSound = Content.Load<SoundEffect>("PongSounds/Powerup4");
+            powerActivateSound = Content.Load<SoundEffect>("PongSounds/WeirdBounce");
 
             // Define custom RGB colours
             white = new Color(199, 198, 198);
@@ -297,7 +329,7 @@ namespace pong_plus
                     if (powerUpExists)
                     {
                         (_, bool powerUpBounce) = powerUp.MoveBall(true);
-                        if (powerUpBounce) { powerBounceSound.Play(0.4f, 0, 0); }
+                        if (powerUpBounce) { powerBounceSound.Play(0.6f, 0, 0); }
 
                         // Hit powerup with paddle
                         (powerUpGet, powerUpExists, pickup) = PowerUp.PickupPowerUp(paddle, powerUp);
@@ -306,7 +338,8 @@ namespace pong_plus
                         if (PowerUp.PowerUpCollision(powerUp, ball))
                         {
                             (powerUpGet, powerUpExists) = PowerUp.DespawnPowerUp(powerUp);
-                            pickup = Math.Sign(ball.Velocity.X) == 1;
+
+                            pickup = Math.Sign(ball.Velocity.X) == 1; // Set pickup side based on which way ball is moving
                         }
                     }
                     else if (!powerUpExists && !powerUpGet)
@@ -319,12 +352,44 @@ namespace pong_plus
                     }
 
                     // Use powerup
-                    if (powerUpGet && !pickupActive)
+                    if (powerUpGet && !powerUpReady)
                     {
-                        iconIndex = rand.Next(0, 2);
-                        pickupActive = true;
+                        iconIndex = rand.Next(0, 3);
+                        alpha = 1f;
+                        powerUpReady = true;
                     }
-                    else if (powerUpGet && pickupActive) { PowerUp.RandomisePowerUp(iconIndex, ball, paddle[pickup ? 0 : 1], pickup); }
+                    else if (powerUpGet && powerUpReady)
+                    {
+                        Keys powerKey = pickup ? Keys.E : Keys.RightControl;
+                        bool pressPowerKey = kbd.IsKeyDown(powerKey) && prevKbd.IsKeyUp(powerKey);
+
+                        if (pressPowerKey)
+                        {
+                            powerUpActive = true;
+                            if (!soundPlayed)
+                            {
+                                powerActivateSound.Play(0.1f, 0, 0);
+                                soundPlayed = true;
+                            }
+                        }
+                        if (powerUpActive)
+                        {
+                            powerTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                            if (powerTimer <= 8f)
+                            {
+                                PowerUp.RandomisePowerUp(iconIndex, ball, paddle[pickup ? 0 : 1], pickup);
+                                FlashIcon(gameTime, alpha);
+                            }
+                            else
+                            {
+                                ResetPaddles();
+                                deepSound.Play(0.12f, 0, 0);
+                                ball = new PongBall(rand, lastHit) { BallBounds = ball.BallBounds, Velocity = ball.Velocity };
+                                ResetPowerUp();
+                            }
+                        }
+                    }
 
                     // Ball collision checks
                     bool hit = paddle[0].CollisionCheck(ball);
@@ -342,7 +407,6 @@ namespace pong_plus
                     {
                         scoreSound.Play(0.25f, 0, 0);
                         lastHit = true;
-                        resetPaddle = false;
                         score[0]++;
                         gameState = GameState.ShowScore;
                     }
@@ -351,7 +415,6 @@ namespace pong_plus
                     {
                         scoreSound.Play(0.25f, 0, 0);
                         lastHit = false;
-                        resetPaddle = false;
                         score[1]++;
                         gameState = GameState.ShowScore;
                     }
@@ -359,24 +422,8 @@ namespace pong_plus
 
                 case GameState.ShowScore:
 
-                    // Reset paddles keeping current Y pos
-                    if (powerUpGet && !resetPaddle)
-                    {
-                        int leftPadY = paddle[0].padBounds.Y;
-                        int rightPadY = paddle[1].padBounds.Y;
-
-                        paddle[0] = new Paddle(false) { padBounds = new Rectangle(GameScreen.border.Left + 16, leftPadY, 8, 32) };
-                        paddle[1] = new Paddle(true) { padBounds = new Rectangle(GameScreen.border.Right - 20, rightPadY, 8, 32) };
-                        resetPaddle = true;
-                    }
-
-                    // Despawn powerup & reset timer
-                    powerUp = null;
-                    powerUpExists = false;
-                    powerUpGet = false;
-                    pickupActive = false;
-                    countDown = rand.Next(1, 2);
-
+                    ResetPaddles();
+                    ResetPowerUp();
                     MovePaddles();
 
                     // Start timer to show score for 2 seconds
@@ -449,20 +496,20 @@ namespace pong_plus
                     spriteBatch.DrawString(font, score[1].ToString("D2"), new Vector2(GameScreen.border.Right - 200, GameScreen.border.Y + 8), blue);
 
                     // Draw powerup
-                    if (powerUpExists) { spriteBatch.Draw(pixel, powerUp.BallBounds, darkRed); }
-                    spriteBatch.DrawString(font, iconIndex.ToString(), new Vector2(100, 100), red);
+                    if (powerUpExists) { spriteBatch.Draw(pixel, powerUp.BallBounds, red); }
+                    spriteBatch.DrawString(font, powerTimer.ToString("0.0"), new Vector2(0, -10), red);
 
                     // Draw laser
                     //spriteBatch.Draw(pixel, new Rectangle(laser.BallBounds.X, laser.BallBounds.Y, 24, 8), red);
 
                     // Draw powerup icon
-                    if (powerUpGet && pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(290, GameScreen.border.Y + 27), Color.White); }
-                    else if (powerUpGet && !pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(453, GameScreen.border.Y + 27), null, Color.White, 0f, new Vector2(0, 0), new Vector2(1, 1), SpriteEffects.FlipHorizontally, 0f); }
+                    if (powerUpGet && pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(290, GameScreen.border.Y + 27), red * alpha); }
+                    else if (powerUpGet && !pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(453, GameScreen.border.Y + 27), null, red * alpha, 0f, new Vector2(0, 0), new Vector2(1, 1), SpriteEffects.FlipHorizontally, 0f); }
 
                     // Draw ball and paddles
                     spriteBatch.Draw(pixel, ball.BallBounds, ball.BallColour);
-                    spriteBatch.Draw(pixel, paddle[0].padBounds, paddle[0].padColour);
-                    spriteBatch.Draw(pixel, paddle[1].padBounds, paddle[1].padColour);
+                    spriteBatch.Draw(pixel, paddle[0].PadBounds, paddle[0].PadColour);
+                    spriteBatch.Draw(pixel, paddle[1].PadBounds, paddle[1].PadColour);
                     break;
 
                 case GameState.ShowScore:
@@ -484,8 +531,8 @@ namespace pong_plus
                     }
 
                     // Draw paddles
-                    spriteBatch.Draw(pixel, paddle[0].padBounds, green);
-                    spriteBatch.Draw(pixel, paddle[1].padBounds, yellow);
+                    spriteBatch.Draw(pixel, paddle[0].PadBounds, green);
+                    spriteBatch.Draw(pixel, paddle[1].PadBounds, yellow);
                     break;
 
                 case GameState.CheckEnd:
@@ -498,8 +545,8 @@ namespace pong_plus
 
                     // Draw ball and paddles
                     spriteBatch.Draw(pixel, ball.BallBounds, white);
-                    spriteBatch.Draw(pixel, paddle[0].padBounds, green);
-                    spriteBatch.Draw(pixel, paddle[1].padBounds, yellow);
+                    spriteBatch.Draw(pixel, paddle[0].PadBounds, green);
+                    spriteBatch.Draw(pixel, paddle[1].PadBounds, yellow);
                     break;
             }
             spriteBatch.End();
