@@ -40,6 +40,13 @@ namespace pong_plus
                                       rand.Next(GameScreen.border.Y + 100, GameScreen.border.Bottom - 100));
         }
 
+        // Projectile constructor
+        public PongBall(int x, int y, int size, int velX, int velY)
+        {
+            BallBounds = new Rectangle(x, y, size, size);
+            Velocity = new Point(velX, velY);
+        }
+
         // Init ball
         private void InitBall(Random rand, bool direction, int spawnX, int spawnY)
         {
