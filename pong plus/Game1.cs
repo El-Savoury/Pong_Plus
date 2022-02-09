@@ -40,18 +40,19 @@ namespace pong_plus
 
         // Powerup vars
         private PongBall powerUp;
-        private PongBall[] balls;
+        private PongBall[] bullets;
         private float countDown; // Countdown until powerup spawns
         private float powerTimer = 0f; // Times how long powerup is active
         private bool pickup; // Which side picked up powerup
         private bool powerUpExists, losingSide, powerUpGet, powerUpReady, powerUpActive, soundPlayed = false;
-        private bool shotgunFired = false;
+        private bool bulletFired = false;
+        bool shotgunFired;
+        bool laserFired;
 
         // Powerup icon vars
         private Texture2D[] powerUpTextures;
         private Texture2D laserpaddle, controlBall, sidewaysPaddle, shotgunBlast, bigPaddle;
         private int iconIndex;
-        private float alpha;
 
         // Scoring vars
         private const int winScore = 5; // Score needed to win
@@ -129,64 +130,93 @@ namespace pong_plus
         // Init projectiles
         private void InitProjectiles(Paddle paddle, bool side)
         {
-            int speed = 14;
+            int shotgunSpeed = 15;
+            int laserSpeed = 30;
+            int xPos = side ? paddle.PadBounds.Right + 2 : paddle.PadBounds.Left - 4;
 
-            if (side)
-            {
-                balls[0] = new PongBall(paddle.PadBounds.Right + 2, paddle.PadBounds.Y - 8, 8, speed, rand.Next(-8, 1));
-                balls[1] = new PongBall(paddle.PadBounds.Right + 2, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 8, speed, rand.Next(-3, 3));
-                balls[2] = new PongBall(paddle.PadBounds.Right + 2, paddle.PadBounds.Bottom, 8, speed, rand.Next(1, 8));
-            }
-            else
-            {
-                balls[0] = new PongBall(paddle.PadBounds.Left - 4, paddle.PadBounds.Y - 8, 8, -speed, rand.Next(-8, 1));
-                balls[1] = new PongBall(paddle.PadBounds.Left - 4, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 8, -speed, rand.Next(-3, 3));
-                balls[2] = new PongBall(paddle.PadBounds.Left - 4, paddle.PadBounds.Bottom, 8, -speed, rand.Next(1, 8));
-            }
+            // Shotgun
+            bullets[0] = new PongBall(xPos, paddle.PadBounds.Y - 8, 8, shotgunSpeed, rand.Next(-8, 1));
+            bullets[1] = new PongBall(xPos, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 8, shotgunSpeed, rand.Next(-3, 3));
+            bullets[2] = new PongBall(xPos, paddle.PadBounds.Bottom, 8, shotgunSpeed, rand.Next(1, 8));
+
+            // Laser
+            bullets[3] = new PongBall(0, 0, 8, laserSpeed, 0) { BallBounds = new Rectangle(xPos, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 24, 8) };
         }
 
         // Projectile Collisons
-        private bool ProjectileCollisions(PongBall[] balls, Paddle paddle)
+        private bool ProjectileCollisions(PongBall[] bullets, Paddle paddle)
         {
-            if (paddle.CollisionCheck(balls[0], bounce: false) || paddle.CollisionCheck(balls[1], bounce: false) || paddle.CollisionCheck(balls[2], bounce: false)) { return true; }
-            return false;
+            if (paddle.CollisionCheck(bullets[0], false) ||
+                paddle.CollisionCheck(bullets[1], false) ||
+                paddle.CollisionCheck(bullets[2], false) ||
+                paddle.CollisionCheck(bullets[3], false))
+                return true;
+            else
+                return false;
         }
 
-        private void ShotgunHit(PongBall[] balls, Paddle paddle)
+        // Shotgun projectiles despawn if hit paddle or go offscreen
+        private void BulletHit(PongBall[] bullets, Paddle paddle, bool side)
         {
-            if (shotgunFired && ProjectileCollisions(balls, paddle)) { paddle.PadBounds = new Rectangle(paddle.PadBounds.X, paddle.PadBounds.Y, 0, 0); }
+            if (bulletFired && ProjectileCollisions(bullets, paddle)) { paddle.PadBounds = new Rectangle(0, mode ? GameScreen.border.Bottom / 2 : paddle.PadBounds.Y, 0, 0); }
 
-            if (balls[0].BallBounds.X == GameScreen.border.X + 1 || balls[0].BallBounds.Right == GameScreen.border.Right) { balls[0] = null; }
-            if (balls[1].BallBounds.X == GameScreen.border.X + 1 || balls[1].BallBounds.Right == GameScreen.border.Right) { balls[1] = null; }
-            if (balls[2].BallBounds.X == GameScreen.border.X + 1 || balls[2].BallBounds.Right == GameScreen.border.Right) { balls[2] = null; }
+            if (bullets[0].BallBounds.X == GameScreen.border.X + 1 || bullets[0].BallBounds.Right == GameScreen.border.Right + 2) { bullets[0] = null; }
+            if (bullets[1].BallBounds.X == GameScreen.border.X + 1 || bullets[1].BallBounds.Right == GameScreen.border.Right + 2) { bullets[1] = null; }
+            if (bullets[2].BallBounds.X == GameScreen.border.X + 1 || bullets[2].BallBounds.Right == GameScreen.border.Right + 2) { bullets[2] = null; }
+            if (bullets[3].BallBounds.X == GameScreen.border.X + 1 || bullets[3].BallBounds.Right == GameScreen.border.Right + 20) { bullets[3] = null; }
         }
 
+        float shotTimer = 0f;
+        float laserTime = 1.5f;
+        // Laser hit
+        private void LaserShot(GameTime time, Paddle paddle, bool side)
+        {
+            shotTimer += (float)time.ElapsedGameTime.TotalSeconds;
+
+            if (shotTimer >= laserTime && shotTimer < laserTime + 0.05f)
+            {
+                shotgunSound.Play(0.3f, 0, 0);
+                InitProjectiles(paddle, side);
+            }
+            else if (shotTimer > laserTime + 0.05f) { shotTimer = 0f; }
+        }
+
+        // Despawn powerup & reset vars
         private void ResetPowerUp()
         {
-            // Despawn powerup & reset vars
             powerUp = null;
             powerUpExists = false;
             powerUpGet = false;
             powerUpReady = false;
             powerUpActive = false;
             soundPlayed = false;
-
-            // Reset timers
+            bulletFired = false;
+            pitch = 0f;
+            shotTimer = 0f;
             powerTimer = 0f;
+            iconTimer = 0.8f;
             countDown = rand.Next(1, 2);
         }
 
-        // Flash powerup icon
-        public void FlashIcon(GameTime Time, float a)
+        // Flash powerup icon and play timer sound with increasing pitch
+        private float alpha;
+        private float iconTimer = 0.8f;
+        private float pitch = 0f;
+        public void FlashIcon(GameTime time, float opacity)
         {
-            float timer = 0.8f;
-            currentTime += (float)Time.ElapsedGameTime.TotalSeconds;
+            currentTime += (float)time.ElapsedGameTime.TotalSeconds;
 
-            if (currentTime <= timer) { a = 0f; }
-            else if (currentTime > timer && currentTime <= timer * 2) { a = 1f; }
-            else { currentTime = 0f; }
+            if (currentTime <= iconTimer) { opacity = 0f; }
+            else if (currentTime > iconTimer && currentTime <= iconTimer * 2) { opacity = 1f; }
+            else
+            {
+                currentTime = 0f;
+                powerActivateSound.Play(0.1f, pitch, 0);
+                pitch += 0.06f;
+                iconTimer -= 0.09f;
+            }
 
-            alpha = a;
+            alpha = opacity;
         }
         #endregion
 
@@ -228,7 +258,7 @@ namespace pong_plus
             OnWindowResize(null, null);
 
             ball = new PongBall(rand, lastHit); // Instantiate ball class - Create ball in centre of screen
-            balls = new PongBall[3];
+            bullets = new PongBall[4];
 
             base.Initialize();
         }
@@ -391,22 +421,20 @@ namespace pong_plus
                     // Use powerup
                     if (powerUpGet && !powerUpReady)
                     {
-                        iconIndex = rand.Next(0, 4);
+                        iconIndex = rand.Next(0, 5);
                         alpha = 1f;
                         powerUpReady = true;
                     }
                     else if (powerUpGet && powerUpReady)
                     {
                         // Set correct key press to activate powerup based on which mode and pickup side
-                        Keys powerKey = Keys.Space;
-                        bool pressPowerKey = kbd.IsKeyDown(powerKey) && prevKbd.IsKeyUp(powerKey);
+                        Keys powerKey;
+                        if (mode) { powerKey = Keys.Space; }
+                        else { powerKey = pickup ? Keys.E : Keys.RightControl; }
 
-                        if (!mode)
-                        {
-                            powerKey = pickup ? Keys.E : Keys.RightControl;
-                            pressPowerKey = kbd.IsKeyDown(powerKey) && prevKbd.IsKeyUp(powerKey);
-                        }
+                        bool pressPowerKey = kbd.IsKeyDown(powerKey);
 
+                        // Use powerup
                         if (pressPowerKey)
                         {
                             powerUpActive = true;
@@ -414,18 +442,21 @@ namespace pong_plus
                             {
                                 InitProjectiles(pickup ? paddle[0] : paddle[1], pickup);
 
-                                if (iconIndex == 3) { shotgunSound.Play(0.4f, 0, 0); }
+                                if (iconIndex > 2) { shotgunSound.Play(0.3f, 0, 0); }
                                 else { powerActivateSound.Play(0.1f, 0, 0); }
                                 soundPlayed = true;
                             }
                         }
+
                         if (powerUpActive)
                         {
                             powerTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
-
                             if (powerTimer <= 8f)
                             {
-                                shotgunFired = PowerUp.RandomisePowerUp(iconIndex, balls, ball, paddle[pickup ? 0 : 1], pickup, rand);
+                                (shotgunFired, laserFired) = PowerUp.RandomisePowerUp(iconIndex, bullets, ball, paddle[pickup ? 0 : 1], pickup);
+
+                                if (shotgunFired || laserFired) { bulletFired = true; }
+
                                 FlashIcon(gameTime, alpha);
                             }
                             else
@@ -438,11 +469,17 @@ namespace pong_plus
                         }
                     }
 
-                    // If shotgun powerup used
-                    if (shotgunFired)
+                    // Projectiles fired
+                    if (shotgunFired && bulletFired)
                     {
-                        ShotgunHit(balls, paddle[0]);
-                        ShotgunHit(balls, paddle[1]);
+                        BulletHit(bullets, paddle[0], pickup);
+                        BulletHit(bullets, paddle[1], pickup);
+                    }
+                    if (laserFired && bulletFired)
+                    {
+                        LaserShot(gameTime, paddle[0], pickup);
+                        BulletHit(bullets, paddle[0], pickup);
+                        BulletHit(bullets, paddle[1], pickup);
                     }
 
                     // Ball collision checks
@@ -472,7 +509,6 @@ namespace pong_plus
                         score[1]++;
                         gameState = GameState.ShowScore;
                     }
-
                     break;
 
                 case GameState.ShowScore:
@@ -553,15 +589,18 @@ namespace pong_plus
                     // Draw powerup
                     if (powerUpExists) { spriteBatch.Draw(pixel, powerUp.BallBounds, purple); }
 
-                    // Draw laser
-                    //spriteBatch.Draw(pixel, new Rectangle(laser.BallBounds.X, laser.BallBounds.Y, 24, 8), red);
-
                     // Draw shotgun blast
-                    if (iconIndex == 3 && shotgunFired && powerUpActive)
+                    if (iconIndex == 3 && powerUpActive)
                     {
-                        if (balls[0].BallBounds.X > GameScreen.border.X && balls[0].BallBounds.Right < GameScreen.border.Right) { spriteBatch.Draw(pixel, balls[0].BallBounds, red); }
-                        if (balls[1].BallBounds.X > GameScreen.border.X && balls[1].BallBounds.Right < GameScreen.border.Right) { spriteBatch.Draw(pixel, balls[1].BallBounds, red); }
-                        if (balls[2].BallBounds.X > GameScreen.border.X && balls[2].BallBounds.Right < GameScreen.border.Right) { spriteBatch.Draw(pixel, balls[2].BallBounds, red); }
+                        if (bullets[0].BallBounds.X > GameScreen.border.X && bullets[0].BallBounds.Right < GameScreen.border.Right) { spriteBatch.Draw(pixel, bullets[0].BallBounds, red); }
+                        if (bullets[1].BallBounds.X > GameScreen.border.X && bullets[1].BallBounds.Right < GameScreen.border.Right) { spriteBatch.Draw(pixel, bullets[1].BallBounds, red); }
+                        if (bullets[2].BallBounds.X > GameScreen.border.X && bullets[2].BallBounds.Right < GameScreen.border.Right) { spriteBatch.Draw(pixel, bullets[2].BallBounds, red); }
+                    }
+
+                    // Draw laser
+                    if (iconIndex == 4 && powerUpActive)
+                    {
+                        if (bullets[3].BallBounds.X > GameScreen.border.X && bullets[3].BallBounds.Right < GameScreen.border.Right + bullets[3].BallBounds.Width) { spriteBatch.Draw(pixel, bullets[3].BallBounds, red); }
                     }
 
                     // Draw powerup icon
@@ -575,10 +614,8 @@ namespace pong_plus
                     break;
 
                 case GameState.ShowScore:
-                    // Check for left side win
-                    if ((score[0] >= winScore && (score[0] - score[1]) > 1) || (score[0] >= winScore && score[1] == 0)) { spriteBatch.DrawString(font, "WIN", new Vector2(190, GameScreen.border.Y + 8), green); }
-                    // Check for right side win
-                    else if ((score[1] >= winScore && (score[1] - score[0]) > 1) || (score[1] >= winScore && score[0] == 0)) { spriteBatch.DrawString(font, "WIN", new Vector2(GameScreen.border.Right - 210, GameScreen.border.Y + 8), yellow); }
+                    if ((score[0] >= winScore && (score[0] - score[1]) > 1) || (score[0] >= winScore && score[1] == 0)) { spriteBatch.DrawString(font, "WIN", new Vector2(190, GameScreen.border.Y + 8), green); } // Left side win
+                    else if ((score[1] >= winScore && (score[1] - score[0]) > 1) || (score[1] >= winScore && score[0] == 0)) { spriteBatch.DrawString(font, "WIN", new Vector2(GameScreen.border.Right - 210, GameScreen.border.Y + 8), yellow); } // Right side win
                     // Draw score font in scoring colour
                     else
                     {
