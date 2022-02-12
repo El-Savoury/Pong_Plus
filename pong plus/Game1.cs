@@ -19,7 +19,7 @@ namespace pong_plus
         private GameScreen gameScreen;
 
         // Keyboard vars
-        KeyboardState kbd, prevKbd;
+        private KeyboardState kbd, prevKbd;
 
         // Timer vars
         private float countDuration = 2f;
@@ -44,10 +44,15 @@ namespace pong_plus
         private float countDown; // Countdown until powerup spawns
         private float powerTimer = 0f; // Times how long powerup is active
         private bool pickup; // Which side picked up powerup
-        private bool powerUpExists, losingSide, powerUpGet, powerUpReady, powerUpActive, soundPlayed = false;
-        private bool bulletFired = false;
-        bool shotgunFired;
-        bool laserFired;
+        private bool powerUpExists, losingSide, powerUpGet, powerUpReady, powerUpActive, soundPlayed, bulletFired = false;
+        private bool shotgunFired, laserFired;
+
+        // Powerup trail vars
+        private Rectangle powerTrail, powerTrail2;
+        private Color trail1Col;
+        private Color trail2Col;
+        private bool drawTrail, drawTrail2 = false;
+        private float trailTime = 0f;
 
         // Powerup icon vars
         private Texture2D[] powerUpTextures;
@@ -127,6 +132,30 @@ namespace pong_plus
             }
         }
 
+        // Draw power up trail
+        private void DrawTrail(GameTime gameTime, PongBall powerUp)
+        {
+            int size = 16;
+
+            trailTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            drawTrail = true;
+            drawTrail2 = true;
+            if (trailTime < 0.1f)
+            {
+                powerTrail = new Rectangle(powerUp.BallBounds.X, powerUp.BallBounds.Y, size, size);
+                trail1Col = purple * 0.7f;
+                trail2Col = purple * 0.4f;
+            }
+            else if (trailTime > 0.9 && trailTime < 1)
+            {
+                powerTrail2 = new Rectangle(powerUp.BallBounds.X, powerUp.BallBounds.Y, size, size);
+                trail1Col = purple * 0.4f;
+                trail2Col = purple * 0.7f; ;
+            }
+            else if (trailTime > 1.5f) { trailTime = 0f; }
+        }
+
         // Init projectiles
         private void InitProjectiles(Paddle paddle, bool side)
         {
@@ -158,7 +187,11 @@ namespace pong_plus
         // Shotgun projectiles despawn if hit paddle or go offscreen
         private void BulletHit(PongBall[] bullets, Paddle paddle, bool side)
         {
-            if (bulletFired && ProjectileCollisions(bullets, paddle)) { paddle.PadBounds = new Rectangle(0, mode ? GameScreen.border.Bottom / 2 : paddle.PadBounds.Y, 0, 0); }
+            if (bulletFired && ProjectileCollisions(bullets, paddle))
+            {
+                paddle.PadBounds = new Rectangle(0, mode ? (GameScreen.border.Y + GameScreen.border.Height) / 2 : paddle.PadBounds.Y, 0, 0);
+                deepSound.Play(0.3f, 0, 0);
+            }
 
             if (bullets[0].BallBounds.X == GameScreen.border.X + 1 || bullets[0].BallBounds.Right == GameScreen.border.Right + 2) { bullets[0] = null; }
             if (bullets[1].BallBounds.X == GameScreen.border.X + 1 || bullets[1].BallBounds.Right == GameScreen.border.Right + 2) { bullets[1] = null; }
@@ -166,8 +199,8 @@ namespace pong_plus
             if (bullets[3].BallBounds.X == GameScreen.border.X + 1 || bullets[3].BallBounds.Right == GameScreen.border.Right + 20) { bullets[3] = null; }
         }
 
-        float shotTimer = 0f;
-        float laserTime = 1.5f;
+        private float shotTimer = 0f;
+        private readonly float laserTime = 1.5f;
         // Laser hit
         private void LaserShot(GameTime time, Paddle paddle, bool side)
         {
@@ -195,6 +228,7 @@ namespace pong_plus
             shotTimer = 0f;
             powerTimer = 0f;
             iconTimer = 0.8f;
+            trailTime = 0f;
             countDown = rand.Next(1, 2);
         }
 
@@ -212,7 +246,7 @@ namespace pong_plus
             {
                 currentTime = 0f;
                 powerActivateSound.Play(0.1f, pitch, 0);
-                pitch += 0.06f;
+                pitch += 0.08f;
                 iconTimer -= 0.09f;
             }
 
@@ -397,6 +431,9 @@ namespace pong_plus
                     {
                         (_, bool powerUpBounce) = powerUp.MoveBall(true);
                         if (powerUpBounce) { powerBounceSound.Play(0.6f, 0, 0); }
+
+                        DrawTrail(gameTime, powerUp);
+                        //DrawTrail2(gameTime, powerTrail);
 
                         // Hit powerup with paddle
                         (powerUpGet, powerUpExists, pickup) = PowerUp.PickupPowerUp(paddle, powerUp);
@@ -586,8 +623,15 @@ namespace pong_plus
                     spriteBatch.DrawString(font, score[0].ToString("D2"), new Vector2(200, GameScreen.border.Y + 8), blue);
                     spriteBatch.DrawString(font, score[1].ToString("D2"), new Vector2(GameScreen.border.Right - 200, GameScreen.border.Y + 8), blue);
 
+                    // Draw powerup icon
+                    if (powerUpGet && pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(290, GameScreen.border.Y + 27), purple * alpha); }
+                    else if (powerUpGet && !pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(453, GameScreen.border.Y + 27), null, purple * alpha, 0f, new Vector2(0, 0), new Vector2(1, 1), SpriteEffects.FlipHorizontally, 0f); }
+
                     // Draw powerup
+                    if (powerUpExists && drawTrail) { spriteBatch.Draw(pixel, powerTrail, trail1Col); }
+                    if (powerUpExists && drawTrail2) { spriteBatch.Draw(pixel, powerTrail2, trail2Col); }
                     if (powerUpExists) { spriteBatch.Draw(pixel, powerUp.BallBounds, purple); }
+                    //if (powerUpExists) { spriteBatch.DrawString(font, trailTime.ToString(), new Vector2(100, 0), green); }
 
                     // Draw shotgun blast
                     if (iconIndex == 3 && powerUpActive)
@@ -600,12 +644,8 @@ namespace pong_plus
                     // Draw laser
                     if (iconIndex == 4 && powerUpActive)
                     {
-                        if (bullets[3].BallBounds.X > GameScreen.border.X && bullets[3].BallBounds.Right < GameScreen.border.Right + bullets[3].BallBounds.Width) { spriteBatch.Draw(pixel, bullets[3].BallBounds, red); }
+                        if (bullets[3].BallBounds.X > GameScreen.border.X && bullets[3].BallBounds.X < GameScreen.border.Right) { spriteBatch.Draw(pixel, bullets[3].BallBounds, red); }
                     }
-
-                    // Draw powerup icon
-                    if (powerUpGet && pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(290, GameScreen.border.Y + 27), purple * alpha); }
-                    else if (powerUpGet && !pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(453, GameScreen.border.Y + 27), null, purple * alpha, 0f, new Vector2(0, 0), new Vector2(1, 1), SpriteEffects.FlipHorizontally, 0f); }
 
                     // Draw ball and paddles
                     spriteBatch.Draw(pixel, ball.BallBounds, ball.BallColour);
