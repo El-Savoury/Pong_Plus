@@ -135,41 +135,40 @@ namespace pong_plus
         // Draw power up trail
         private void DrawTrail(GameTime gameTime, PongBall powerUp)
         {
-            int size = 16;
+            int size = 12;
 
             trailTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            drawTrail = true;
-            drawTrail2 = true;
             if (trailTime < 0.1f)
             {
                 powerTrail = new Rectangle(powerUp.BallBounds.X, powerUp.BallBounds.Y, size, size);
+                drawTrail = true;
+                drawTrail2 = true;
                 trail1Col = purple * 0.7f;
                 trail2Col = purple * 0.4f;
             }
-            else if (trailTime > 0.9 && trailTime < 1)
+            else if (trailTime > 0.5 && trailTime < 0.6)
             {
                 powerTrail2 = new Rectangle(powerUp.BallBounds.X, powerUp.BallBounds.Y, size, size);
                 trail1Col = purple * 0.4f;
                 trail2Col = purple * 0.7f; ;
             }
-            else if (trailTime > 1.5f) { trailTime = 0f; }
+            else if (trailTime > 0.8f) { trailTime = 0f; }
         }
 
         // Init projectiles
         private void InitProjectiles(Paddle paddle, bool side)
         {
-            int shotgunSpeed = 15;
-            int laserSpeed = 30;
-            int xPos = side ? paddle.PadBounds.Right + 2 : paddle.PadBounds.Left - 4;
+            int xPos = side ? paddle.PadBounds.Right + 2 : paddle.PadBounds.X - 24;
+            int xSpeed = side ? rand.Next(15, 17) : -rand.Next(15, 17);
 
             // Shotgun
-            bullets[0] = new PongBall(xPos, paddle.PadBounds.Y - 8, 8, shotgunSpeed, rand.Next(-8, 1));
-            bullets[1] = new PongBall(xPos, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 8, shotgunSpeed, rand.Next(-3, 3));
-            bullets[2] = new PongBall(xPos, paddle.PadBounds.Bottom, 8, shotgunSpeed, rand.Next(1, 8));
+            bullets[0] = new PongBall(xPos, paddle.PadBounds.Y - 8, 8, xSpeed, rand.Next(-5, 1));
+            bullets[1] = new PongBall(xPos, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 8, xSpeed, rand.Next(-2, 2));
+            bullets[2] = new PongBall(xPos, paddle.PadBounds.Bottom, 8, xSpeed, rand.Next(1, 5));
 
             // Laser
-            bullets[3] = new PongBall(0, 0, 8, laserSpeed, 0) { BallBounds = new Rectangle(xPos, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 24, 8) };
+            bullets[3] = new PongBall(0, 0, 8, 30, 0) { BallBounds = new Rectangle(xPos, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 24, 8) };
         }
 
         // Projectile Collisons
@@ -179,7 +178,9 @@ namespace pong_plus
                 paddle.CollisionCheck(bullets[1], false) ||
                 paddle.CollisionCheck(bullets[2], false) ||
                 paddle.CollisionCheck(bullets[3], false))
+            {
                 return true;
+            }
             else
                 return false;
         }
@@ -193,25 +194,37 @@ namespace pong_plus
                 deepSound.Play(0.3f, 0, 0);
             }
 
-            if (bullets[0].BallBounds.X == GameScreen.border.X + 1 || bullets[0].BallBounds.Right == GameScreen.border.Right + 2) { bullets[0] = null; }
-            if (bullets[1].BallBounds.X == GameScreen.border.X + 1 || bullets[1].BallBounds.Right == GameScreen.border.Right + 2) { bullets[1] = null; }
-            if (bullets[2].BallBounds.X == GameScreen.border.X + 1 || bullets[2].BallBounds.Right == GameScreen.border.Right + 2) { bullets[2] = null; }
-            if (bullets[3].BallBounds.X == GameScreen.border.X + 1 || bullets[3].BallBounds.Right == GameScreen.border.Right + 20) { bullets[3] = null; }
+            // Play bounce sound
+            if (bullets[0].BallBounds.X < GameScreen.border.X + 2 || bullets[0].BallBounds.Right > GameScreen.border.Right - 2) { bounceSound.Play(0.1f, 0.5f, 0); } // bullets[0] = null; }
+            if (bullets[1].BallBounds.X < GameScreen.border.X + 2 || bullets[1].BallBounds.Right > GameScreen.border.Right - 2) { bounceSound.Play(0.1f, 0.5f, 0); } //bullets[1] = null; }
+            if (bullets[2].BallBounds.X < GameScreen.border.X + 2 || bullets[2].BallBounds.Right > GameScreen.border.Right - 2) { bounceSound.Play(0.1f, 0.5f, 0); } // bullets[2] = null; }
+
+            // Destroy laser
+            if (bullets[3].BallBounds.X == GameScreen.border.X + 4 || bullets[3].BallBounds.Right == GameScreen.border.Right + 20) { bullets[3] = null; }
         }
 
         private float shotTimer = 0f;
         private readonly float laserTime = 1.5f;
+        private bool lasered = false;
         // Laser hit
         private void LaserShot(GameTime time, Paddle paddle, bool side)
         {
             shotTimer += (float)time.ElapsedGameTime.TotalSeconds;
 
-            if (shotTimer >= laserTime && shotTimer < laserTime + 0.05f)
+            if (shotTimer < 0.5f && !lasered) { paddle.PadSpeed = 0; }
+            else if (shotTimer > 0.5f && shotTimer < laserTime && !lasered) { paddle.PadSpeed = 8; }
+            else if (shotTimer >= laserTime && shotTimer < laserTime + 0.05f)
             {
                 shotgunSound.Play(0.3f, 0, 0);
                 InitProjectiles(paddle, side);
+                lasered = true;
             }
-            else if (shotTimer > laserTime + 0.05f) { shotTimer = 0f; }
+            else if (shotTimer > laserTime + 0.05f && shotTimer < laserTime + 0.5f) { paddle.PadSpeed = 0; }
+            else if (shotTimer > laserTime + 0.5f)
+            {
+                paddle.PadSpeed = 8;
+                shotTimer = 0f;
+            }
         }
 
         // Despawn powerup & reset vars
@@ -224,12 +237,16 @@ namespace pong_plus
             powerUpActive = false;
             soundPlayed = false;
             bulletFired = false;
+            lasered = false;
+            drawTrail = false;
             pitch = 0f;
             shotTimer = 0f;
             powerTimer = 0f;
             iconTimer = 0.8f;
             trailTime = 0f;
             countDown = rand.Next(1, 2);
+            powerTrail = new Rectangle(0, 0, 0, 0);
+            powerTrail2 = new Rectangle(0, 0, 0, 0);
         }
 
         // Flash powerup icon and play timer sound with increasing pitch
@@ -249,7 +266,6 @@ namespace pong_plus
                 pitch += 0.08f;
                 iconTimer -= 0.09f;
             }
-
             alpha = opacity;
         }
         #endregion
@@ -433,7 +449,6 @@ namespace pong_plus
                         if (powerUpBounce) { powerBounceSound.Play(0.6f, 0, 0); }
 
                         DrawTrail(gameTime, powerUp);
-                        //DrawTrail2(gameTime, powerTrail);
 
                         // Hit powerup with paddle
                         (powerUpGet, powerUpExists, pickup) = PowerUp.PickupPowerUp(paddle, powerUp);
@@ -458,7 +473,7 @@ namespace pong_plus
                     // Use powerup
                     if (powerUpGet && !powerUpReady)
                     {
-                        iconIndex = rand.Next(0, 5);
+                        iconIndex = 3; // rand.Next(0, 5);
                         alpha = 1f;
                         powerUpReady = true;
                     }
