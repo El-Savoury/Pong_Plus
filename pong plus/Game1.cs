@@ -41,6 +41,7 @@ namespace pong_plus
         // Powerup vars
         private PongBall powerUp;
         private PongBall[] bullets;
+        private int powerSize;
         private float countDown; // Countdown until powerup spawns
         private float powerTimer = 0f; // Times how long powerup is active
         private bool pickup; // Which side picked up powerup
@@ -49,8 +50,6 @@ namespace pong_plus
 
         // Powerup trail vars
         private Rectangle powerTrail, powerTrail2;
-        private Color trail1Col;
-        private Color trail2Col;
         private bool drawTrail, drawTrail2 = false;
         private float trailTime = 0f;
 
@@ -122,10 +121,13 @@ namespace pong_plus
             paddle[1].AiSpeed = 8;
         }
 
+        private float spawnTime = 0f;
         // Spawn powerup on random timer
-        private void SpawnPowerUp(GameTime gameTime, float countDown)
+        private int SpawnPowerUp(GameTime gameTime, float countDown, Random rand)
         {
-            currentTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            powerSize = rand.Next(22, 37);
+
+            spawnTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             // Get losing side
             int i;
@@ -137,19 +139,20 @@ namespace pong_plus
             if (i == 0) losingSide = true;
             else if (i == 1) losingSide = false;
 
-            if (currentTime >= countDown)
+            if (spawnTime >= countDown)
             {
-                powerUp = new PongBall(rand, losingSide, 24, 1, 3);
+                powerUp = new PongBall(rand, losingSide, powerSize, 1, 3);
                 powerUpExists = true;
                 powerActivateSound.Play(0.1f, 0, 0);
-                currentTime = 0f;
+                spawnTime = 0f;
             }
+            return powerSize;
         }
 
         // Draw power up trail
         private void DrawTrail(GameTime gameTime, PongBall powerUp)
         {
-            int size = 12;
+            int size = powerSize / 2;
 
             trailTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
@@ -158,16 +161,50 @@ namespace pong_plus
                 powerTrail = new Rectangle(powerUp.BallBounds.X, powerUp.BallBounds.Y, size, size);
                 drawTrail = true;
                 drawTrail2 = true;
-                trail1Col = purple * 0.7f;
-                trail2Col = purple * 0.4f;
             }
-            else if (trailTime > 0.5 && trailTime < 0.6)
-            {
-                powerTrail2 = new Rectangle(powerUp.BallBounds.X, powerUp.BallBounds.Y, size, size);
-                trail1Col = purple * 0.4f;
-                trail2Col = purple * 0.7f; ;
-            }
+            else if (trailTime > 0.5 && trailTime < 0.6) { powerTrail2 = new Rectangle(powerUp.BallBounds.X, powerUp.BallBounds.Y, size, size); }
             else if (trailTime > 0.8f) { trailTime = 0f; }
+        }
+
+        // Use power up for whichever paddle has activated it
+        private void UsePower()
+        {
+            powerUpActive = true;
+            if (!soundPlayed)
+            {
+                InitProjectiles(pickup ? paddle[0] : paddle[1], pickup);
+
+                if (iconIndex > 2) { shotgunSound.Play(0.3f, 0, 0); }
+                else { powerActivateSound.Play(0.1f, 0, 0); }
+                soundPlayed = true;
+            }
+        }
+
+        private float aiTime = 0f;
+        // AI uses power on timer and when ball is moving away
+        private void AiUsePower(GameTime time, Random rand, PongBall ball)
+        {
+            aiTime += (float)time.ElapsedGameTime.TotalSeconds;
+            if (aiTime > rand.Next(2, 5) && Math.Sign(ball.Velocity.X) == -1)
+            {
+                UsePower();
+                if (iconIndex == 0) { paddle[1].AiSpeed = 0; }
+            }
+        }
+
+        // Move ball when AI has control ball powerup 
+        private void AiControlBall()
+        {
+            if (Math.Sign(ball.Velocity.X) == 1 && ball.BallBounds.X > paddle[0].PadBounds.Right + 10)
+            {
+                if (ball.BallBounds.Y > (paddle[1].PadBounds.Y - 8) + 20 && Math.Sign(ball.Velocity.Y) == 1) { ball.ReverseVelocity(y: true); }
+                else if (ball.BallBounds.Y < (paddle[1].PadBounds.Y - 8) - 20 && Math.Sign(ball.Velocity.Y) == -1) { ball.ReverseVelocity(y: true); }
+            }
+            else if (Math.Sign(ball.Velocity.X) == -1)
+            {
+                if (ball.BallBounds.Y > (paddle[0].PadBounds.Y - 8) + 20 && Math.Sign(ball.Velocity.Y) == 1) { ball.ReverseVelocity(y: true); }
+                else if (ball.BallBounds.Y < (paddle[0].PadBounds.Y - 8) - 20 && Math.Sign(ball.Velocity.Y) == -1) { ball.ReverseVelocity(y: true); }
+            }
         }
 
         // Init projectiles
@@ -260,6 +297,7 @@ namespace pong_plus
             powerTimer = 0f;
             iconTimer = 0.8f;
             trailTime = 0f;
+            aiTime = 0f;
             countDown = rand.Next(1, 2);
             powerTrail = new Rectangle(0, 0, 0, 0);
             powerTrail2 = new Rectangle(0, 0, 0, 0);
@@ -477,15 +515,12 @@ namespace pong_plus
                             pickup = Math.Sign(ball.Velocity.X) == 1; // Set pickup side based on which way ball is moving
                         }
                     }
-                    else if (!powerUpExists && !powerUpGet)
-                    {
-                        SpawnPowerUp(gameTime, countDown);
-                    }
+                    else if (!powerUpExists && !powerUpGet) { SpawnPowerUp(gameTime, countDown, rand); }
 
                     // Use powerup
                     if (powerUpGet && !powerUpReady)
                     {
-                        iconIndex = rand.Next(0, 5);
+                        iconIndex = rand.Next(0, 1);
                         alpha = 1f;
                         powerUpReady = true;
                     }
@@ -493,23 +528,20 @@ namespace pong_plus
                     {
                         // Set correct key press to activate powerup based on which mode and pickup side
                         Keys powerKey;
-                        if (mode) { powerKey = Keys.Space; }
+                        if (mode && pickup) { powerKey = Keys.Space; }
                         else { powerKey = pickup ? Keys.E : Keys.RightControl; }
 
                         bool pressPowerKey = kbd.IsKeyDown(powerKey);
 
-                        // Use powerup
+                        // Player use powerup
                         if (pressPowerKey)
                         {
-                            powerUpActive = true;
-                            if (!soundPlayed)
-                            {
-                                InitProjectiles(pickup ? paddle[0] : paddle[1], pickup);
-
-                                if (iconIndex > 2) { shotgunSound.Play(0.3f, 0, 0); }
-                                else { powerActivateSound.Play(0.1f, 0, 0); }
-                                soundPlayed = true;
-                            }
+                            UsePower();
+                        }
+                        // AI use powerup
+                        else if (mode && !pickup)
+                        {
+                            AiUsePower(gameTime, rand, ball);
                         }
 
                         if (powerUpActive)
@@ -518,7 +550,7 @@ namespace pong_plus
 
                             if (powerTimer <= 8f)
                             {
-                                (shotgunFired, laserFired) = PowerUp.RandomisePowerUp(iconIndex, bullets, ball, paddle[pickup ? 0 : 1], pickup);
+                                (shotgunFired, laserFired) = PowerUp.RandomisePowerUp(iconIndex, bullets, ball, paddle[pickup ? 0 : 1], pickup, mode);
 
                                 if (shotgunFired || laserFired) { bulletFired = true; }
 
@@ -532,6 +564,12 @@ namespace pong_plus
                                 ResetPowerUp();
                             }
                         }
+                    }
+
+                    // AI uses move ball power
+                    if (mode && !pickup && powerUpActive && iconIndex == 0)
+                    {
+                        AiControlBall();
                     }
 
                     // Projectiles fired
@@ -668,7 +706,7 @@ namespace pong_plus
                     if (powerUpExists && drawTrail) { spriteBatch.Draw(pixel, powerTrail, purple /*trail1Col*/); }
                     if (powerUpExists && drawTrail2) { spriteBatch.Draw(pixel, powerTrail2, purple/*trail2Col*/); }
                     if (powerUpExists) { spriteBatch.Draw(pixel, powerUp.BallBounds, purple); }
-                   
+
                     // Draw shotgun blast
                     if (iconIndex == 3 && powerUpActive)
                     {
