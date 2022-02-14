@@ -35,7 +35,7 @@ namespace pong_plus
         private readonly Random rand; // Inits random object to allow random ball direction
 
         // Paddle vars
-        private Paddle[] paddle;
+        private readonly Paddle[] paddle;
         private bool lastHit = true; // Which side hit/scored last (left = true, right = false)
 
         // Powerup vars
@@ -62,6 +62,7 @@ namespace pong_plus
         private const int winScore = 5; // Score needed to win
         private int[] score; // Current scores
         private bool win; // True if a player has won
+        private float scoreTime = 0f;
 
         // Font
         private SpriteFont font;
@@ -188,7 +189,7 @@ namespace pong_plus
             if (aiTime > rand.Next(2, 5) && Math.Sign(ball.Velocity.X) == -1)
             {
                 UsePower();
-                if (iconIndex == 0) { paddle[1].AiSpeed = 0; }
+                if (iconIndex == 2) { paddle[1].AiSpeed = 0; }
             }
         }
 
@@ -305,7 +306,7 @@ namespace pong_plus
 
         // Flash powerup icon and play timer sound with increasing pitch
         private float alpha;
-        private float iconTimer = 0.8f;
+        private float iconTimer = 0.82f;
         private float pitch = 0f;
         public void FlashIcon(GameTime time, float opacity)
         {
@@ -384,7 +385,7 @@ namespace pong_plus
             laserpaddle = Content.Load<Texture2D>("PongSprites/laser");
             shotgunBlast = Content.Load<Texture2D>("PongSprites/multi laser");
 
-            powerUpTextures = new Texture2D[] { controlBall, sidewaysPaddle, bigPaddle, shotgunBlast, laserpaddle, };
+            powerUpTextures = new Texture2D[] { sidewaysPaddle, bigPaddle, controlBall, shotgunBlast, laserpaddle, };
 
             // Load font
             font = Content.Load<SpriteFont>("start");
@@ -520,7 +521,9 @@ namespace pong_plus
                     // Use powerup
                     if (powerUpGet && !powerUpReady)
                     {
-                        iconIndex = rand.Next(0, 1);
+                        if (mode && !pickup) { iconIndex = rand.Next(1, 5); }
+                        else { iconIndex = rand.Next(0, 5); }
+
                         alpha = 1f;
                         powerUpReady = true;
                     }
@@ -567,7 +570,7 @@ namespace pong_plus
                     }
 
                     // AI uses move ball power
-                    if (mode && !pickup && powerUpActive && iconIndex == 0)
+                    if (mode && !pickup && powerUpActive && iconIndex == 2)
                     {
                         AiControlBall();
                     }
@@ -629,13 +632,21 @@ namespace pong_plus
                     ResetPowerUp();
                     MovePaddles();
 
-                    // Start timer to show score for 2 seconds
-                    currentTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                    // Check for a winner by 2 clear points
+                    if ((score[0] >= winScore && (score[0] - score[1]) > 1) ||
+                        (score[0] >= winScore && score[1] == 0) ||
+                        (score[1] >= winScore && (score[1] - score[0]) > 1) ||
+                        (score[1] >= winScore && score[0] == 0))
+                    { win = true; }
 
-                    if (currentTime >= countDuration)
+                    // Start timer to show score for 2 seconds
+                    scoreTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                    if (win && scoreTime < 0.05f) { selectSound.Play(0.5f, 0, 0); }
+                    else if (scoreTime >= countDuration)
                     {
                         gameState = GameState.CheckEnd;
-                        currentTime = 0f;
+                        scoreTime = 0f;
                     }
 
                     ball = new PongBall(rand, lastHit); // Create new ball object at start of each point.
@@ -643,17 +654,18 @@ namespace pong_plus
 
                 case GameState.CheckEnd:
 
-                    // Check for win by 2 clear points
-                    if ((score[0] >= winScore && (score[0] - score[1]) > 1) || (score[0] >= winScore && score[1] == 0)) // Left side
-                    {
-                        win = true;
-                        gameState = GameState.Idle;
-                    }
-                    else if ((score[1] >= winScore && (score[1] - score[0]) > 1) || (score[1] >= winScore && score[0] == 0)) // Right side
-                    {
-                        win = true;
-                        gameState = GameState.Idle;
-                    }
+                    //// Check for win by 2 clear points
+                    //if ((score[0] >= winScore && (score[0] - score[1]) > 1) || (score[0] >= winScore && score[1] == 0)) // Left side
+                    //{
+                    //    win = true;
+                    //    gameState = GameState.Idle;
+                    //}
+                    //else if ((score[1] >= winScore && (score[1] - score[0]) > 1) || (score[1] >= winScore && score[0] == 0)) // Right side
+                    //{
+                    //    win = true;
+                    //    gameState = GameState.Idle;
+                    //}
+                    if (win) { gameState = GameState.Idle; }
                     else { gameState = GameState.Play; }
                     break;
 
