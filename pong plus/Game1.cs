@@ -186,7 +186,7 @@ namespace pong_plus
         private void AiUsePower(GameTime time, Random rand, PongBall ball)
         {
             aiTime += (float)time.ElapsedGameTime.TotalSeconds;
-            if (aiTime > rand.Next(2, 5) && Math.Sign(ball.Velocity.X) == -1)
+            if (aiTime > rand.Next(2, 5) && Math.Sign(ball.Velocity.X) == -1 && ball.BallBounds.X < paddle[1].PadBounds.X - 15)
             {
                 UsePower();
                 if (iconIndex == 2) { paddle[1].AiSpeed = 0; }
@@ -212,12 +212,12 @@ namespace pong_plus
         private void InitProjectiles(Paddle paddle, bool side)
         {
             int xPos = side ? paddle.PadBounds.Right + 2 : paddle.PadBounds.X - 24;
-            int xSpeed = side ? rand.Next(15, 17) : -rand.Next(15, 17);
+            int xSpeed = side ? rand.Next(17, 21) : -rand.Next(17, 21);
 
             // Shotgun
-            bullets[0] = new PongBall(xPos, paddle.PadBounds.Y - 8, 8, xSpeed, rand.Next(-5, 1));
+            bullets[0] = new PongBall(xPos, paddle.PadBounds.Y - 8, 8, xSpeed, rand.Next(-4, 1));
             bullets[1] = new PongBall(xPos, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 8, xSpeed, rand.Next(-2, 2));
-            bullets[2] = new PongBall(xPos, paddle.PadBounds.Bottom, 8, xSpeed, rand.Next(1, 5));
+            bullets[2] = new PongBall(xPos, paddle.PadBounds.Bottom, 8, xSpeed, rand.Next(1, 4));
 
             // Laser
             bullets[3] = new PongBall(0, 0, 8, side ? 45 : -45, 0) { BallBounds = new Rectangle(side ? paddle.PadBounds.Right : paddle.PadBounds.X - 24, paddle.PadBounds.Y + (paddle.PadBounds.Height / 2 - 4), 24, 8) };
@@ -296,17 +296,17 @@ namespace pong_plus
             pitch = 0f;
             shotTimer = 0f;
             powerTimer = 0f;
-            iconTimer = 0.8f;
+            iconTimer = 0.84f;
             trailTime = 0f;
             aiTime = 0f;
-            countDown = rand.Next(1, 2);
+            countDown = rand.Next(2, 8);
             powerTrail = new Rectangle(0, 0, 0, 0);
             powerTrail2 = new Rectangle(0, 0, 0, 0);
         }
 
         // Flash powerup icon and play timer sound with increasing pitch
         private float alpha;
-        private float iconTimer = 0.82f;
+        private float iconTimer = 0.84f;
         private float pitch = 0f;
         public void FlashIcon(GameTime time, float opacity)
         {
@@ -412,6 +412,7 @@ namespace pong_plus
             startColour = green;
             leftColour = green;
             rightColour = blue;
+            //purple = red;
         }
         #endregion
 
@@ -485,7 +486,7 @@ namespace pong_plus
                     // Reset scores & powerup timer
                     win = false;
                     score = new int[2];
-                    countDown = rand.Next(1, 2);
+                    countDown = rand.Next(2, 8);
 
                     gameState = GameState.Play;
                     break;
@@ -654,17 +655,6 @@ namespace pong_plus
 
                 case GameState.CheckEnd:
 
-                    //// Check for win by 2 clear points
-                    //if ((score[0] >= winScore && (score[0] - score[1]) > 1) || (score[0] >= winScore && score[1] == 0)) // Left side
-                    //{
-                    //    win = true;
-                    //    gameState = GameState.Idle;
-                    //}
-                    //else if ((score[1] >= winScore && (score[1] - score[0]) > 1) || (score[1] >= winScore && score[0] == 0)) // Right side
-                    //{
-                    //    win = true;
-                    //    gameState = GameState.Idle;
-                    //}
                     if (win) { gameState = GameState.Idle; }
                     else { gameState = GameState.Play; }
                     break;
@@ -715,8 +705,8 @@ namespace pong_plus
                     else if (powerUpGet && !pickup) { spriteBatch.Draw(powerUpTextures[iconIndex], new Vector2(453, GameScreen.border.Y + 27), null, purple * alpha, 0f, new Vector2(0, 0), new Vector2(1, 1), SpriteEffects.FlipHorizontally, 0f); }
 
                     // Draw powerup
-                    if (powerUpExists && drawTrail) { spriteBatch.Draw(pixel, powerTrail, purple /*trail1Col*/); }
-                    if (powerUpExists && drawTrail2) { spriteBatch.Draw(pixel, powerTrail2, purple/*trail2Col*/); }
+                    if (powerUpExists && drawTrail) { spriteBatch.Draw(pixel, powerTrail, purple); }
+                    if (powerUpExists && drawTrail2) { spriteBatch.Draw(pixel, powerTrail2, purple); }
                     if (powerUpExists) { spriteBatch.Draw(pixel, powerUp.BallBounds, purple); }
 
                     // Draw shotgun blast
